@@ -1,3 +1,4 @@
+import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -58,5 +59,22 @@ def plot_cube(cube, ncols):
             else:
                 axes[i, j].axis("off")
 
-    plt.subplots_adjust(wspace=0.01, hspace=0.01)
+    plt.subplots_adjust(
+        wspace=0.01, hspace=0.01
+    )
+    plt.show()
+
+
+def plot_spectrum_from_cube(cube, figsize=(15, 10)):
+
+    y = np.zeros(
+        shape=(cube.shape[0],)
+    )
+    for i in range(len(y)):
+        y[i] = np.sum(cube[i, :, :])
+
+    plt.figure(
+        figsize=figsize
+    )
+    plt.plot(y)
     plt.show()
