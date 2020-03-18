@@ -46,12 +46,17 @@ def plot_cube(cube, ncols):
     # vmin=vmin,
     # vmax=vmax
 
+    vmin = np.min(cube)
+    vmax = np.max(cube)
+
     k = 0
     for i in range(nrows):
         for j in range(ncols):
             if k < N:
                 axes[i, j].imshow(
-                    cube[k, :, :]
+                    cube[k, :, :],
+                    vmin=vmin,
+                    vmax=vmax
                 )
                 axes[i, j].set_xticks([])
                 axes[i, j].set_yticks([])

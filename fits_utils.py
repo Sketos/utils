@@ -29,7 +29,7 @@ def get_pixel_scale_from_fits(filename, image_hdu=0, units="deg"):
         raise ValueError
 
     # ...
-    if units=="arcsec":
+    if units == "arcsec":
         pixel_scale_x = pixel_scale_x * au.deg.to(au.arcsec)
         pixel_scale_y = pixel_scale_y * au.deg.to(au.arcsec)
     _pixel_scale = np.sqrt(pixel_scale_x * pixel_scale_y)
