@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from spectral_utils import *
+
 
 def plot_cube(cube, ncols):
     """
@@ -70,13 +72,12 @@ def plot_cube(cube, ncols):
     plt.show()
 
 
+
 def plot_spectrum_from_cube(cube, figsize=(15, 10)):
 
-    y = np.zeros(
-        shape=(cube.shape[0],)
+    y = get_spectrum_from_cube(
+        cube=cube
     )
-    for i in range(len(y)):
-        y[i] = np.sum(cube[i, :, :])
 
     plt.figure(
         figsize=figsize

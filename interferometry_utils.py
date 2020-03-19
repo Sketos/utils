@@ -19,7 +19,7 @@ def compute_beam_area(bmin, bmaj):
 
 
 def get_header_from_fits(filename, hdu_header=0):
-
+    
     hdu = fits.open(filename)
     header = hdu[hdu_header].header
 
