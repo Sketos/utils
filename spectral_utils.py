@@ -33,7 +33,7 @@ def convert_frequency_to_velocity_resolution(frequency_resolution, frequency_0, 
     units: - default [km/s]
 
     """
-    return (constants.c * frequency_resolution / frequency_0).to(units)
+    return (constants.c * frequency_resolution / frequency_0).to(units).value
 
 
 def observed_line_frequency_from_rest_line_frequency(frequency, redshift):
