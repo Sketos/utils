@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from spectral_utils import *
 
 
-def plot_cube(cube, ncols):
+def plot_cube(cube, ncols, imshow_kwargs={}, subplots_kwargs={"wspace":0.01, "hspace":0.01}):
     """
 
     Parameters
@@ -52,13 +52,17 @@ def plot_cube(cube, ncols):
     vmax = np.max(cube)
 
     k = 0
+
     for i in range(nrows):
         for j in range(ncols):
             if k < N:
                 axes[i, j].imshow(
                     cube[k, :, :],
+                    cmap="jet",
+                    interpolation="None",
                     vmin=vmin,
-                    vmax=vmax
+                    vmax=vmax,
+                    **imshow_kwargs
                 )
                 axes[i, j].set_xticks([])
                 axes[i, j].set_yticks([])
@@ -67,7 +71,7 @@ def plot_cube(cube, ncols):
                 axes[i, j].axis("off")
 
     plt.subplots_adjust(
-        wspace=0.01, hspace=0.01
+        **subplots_kwargs
     )
     plt.show()
 

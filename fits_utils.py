@@ -146,6 +146,61 @@ def updated_header_with_header_keys(header, header_keys, replace=False):
     return header
 
 
+# def save_cube_to_fits(
+#     CRVAL1,
+#     CDELT1,
+#     CRPIX1,
+#     CRVAL2,
+#     CDELT2,
+#     CRPIX2,
+#     data,
+#     directory=None,
+#     filename="cube"
+# ):
+#
+#     if len(data.shape) == 3:
+#         pass
+#     else:
+#         raise ValueError
+#
+#     header = fits.Header()
+#     header["CTYPE1"] = "RA---SIN"
+#     header["CRVAL1"] = CRVAL1
+#     header["CDELT1"] = CDELT1
+#     header["CRPIX1"] = CRPIX1
+#     header["CUNIT1"] = "deg"
+#     header["CTYPE2"] = "DEC--SIN"
+#     header["CRVAL2"] = CRVAL2
+#     header["CDELT2"] = CDELT2
+#     header["CRPIX2"] = CRPIX2
+#     header["CUNIT2"] = "deg"
+#
+#     # # ...
+#     # if directory is None:
+#     #     filename = "cube.fits"
+#     # else:
+#     #     if directory[-1] == "/":
+#     #         directory = directory[:-1]
+#     #     filename = directory + "/cube.fits"
+#
+#     if directory:
+#         # TODO: check if directory exists.
+#
+#         if directory[-1] == "/":
+#             directory = directory[:-1]
+#     else:
+#         directory = "."
+#
+#     filename = directory + "/" + filename + ".fits"
+#
+#     fits.writeto(
+#         filename,
+#         data=data,
+#         header=header,
+#         overwrite=True
+#     )
+
+
 # ----------------------- #
 #
 # ----------------------- #
@@ -178,8 +233,8 @@ def test__extract_list_of_keys_from_header():
     header = fits.getheader(
         filename=filename, ext=ext
     )
-    #print(header["CDELT1"])
 
+    # ...
     list_of_keys = [
         "CTYPE3",
         "CRVAL3",
@@ -188,8 +243,12 @@ def test__extract_list_of_keys_from_header():
         "CUNIT3"
     ]
 
-    extract_list_of_keys_from_header
-    #header, list_of_keys=None
+    # ...
+    header_keys = extract_list_of_keys_from_header(
+        header=header, list_of_keys=list_of_keys
+    )
+
+    print(header_keys)
 
 # ----------------------- #
 #

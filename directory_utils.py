@@ -2,7 +2,9 @@
 
 def directory_update_with_folder_names(directory, folder_names):
 
-    directory = sanitize_directory(directory)
+    directory = sanitize_directory(
+        directory=directory
+    )
 
     for name in folder_names:
         directory += "/" + name
@@ -17,10 +19,10 @@ def sanitize_directory(directory):
     return directory
 
 
-# --- #
+# ---------------------------------------------------------------------------- #
 
 
-def test_sanitize_directory():
+def test__sanitize_directory():
 
     directory_i = "./folder1/folder2/"
     directory_o = "./folder1/folder2"
@@ -33,6 +35,14 @@ def test_sanitize_directory():
         raise ValueError
 
 
+# ---------------------------------------------------------------------------- #
+
+
+def run_tests():
+
+    test__sanitize_directory()
+
+
+
 if __name__ == "__main__":
-    pass
-    #test_sanitize_directory()
+    run_tests()

@@ -1,3 +1,5 @@
+# NOTE: ...
+
 import os
 import numpy as np
 
@@ -35,6 +37,26 @@ def filter_input_list_of_strings_after_split_with_ending_string(input_list_of_st
     for i, i_string in enumerate(input_list_of_strings):
         i_string_splitted = i_string.split(split_character)
         if i_string_splitted[-1].startswith(ending_string):
+            output_list_of_strings.append(i_string)
+
+    return output_list_of_strings
+
+
+def filter_input_list_of_strings_after_split_with_starting_string(input_list_of_strings, split_character, starting_string):
+    output_list_of_strings = []
+    for i, i_string in enumerate(input_list_of_strings):
+        i_string_splitted = i_string.split(split_character)
+        for j, j_string_splitted in enumerate(i_string_splitted):
+            if j_string_splitted.startswith(starting_string):
+                output_list_of_strings.append(i_string)
+
+    return output_list_of_strings
+
+
+def filter_input_list_of_strings_with_starting_string(input_list_of_strings, starting_string):
+    output_list_of_strings = []
+    for i, i_string in enumerate(input_list_of_strings):
+        if i_string.startswith(starting_string):
             output_list_of_strings.append(i_string)
 
     return output_list_of_strings

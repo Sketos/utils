@@ -28,3 +28,23 @@ def pixel_scale_from_antenna_configuration_and_frequency(antenna_configuration, 
         raise ValueError
 
     return pixel_scale
+
+
+def compute_frequencies(central_frequency, n_channels, frequency_resolution):
+
+    frequency_0 = compute_0_index_frequency(
+        central_frequency=central_frequency,
+        n_channels=n_channels,
+        frequency_resolution=frequency_resolution
+    )
+
+    # TODO: 
+
+def compute_0_index_frequency(central_frequency, n_channels, frequency_resolution):
+
+    if (n_channels % 2) == 0:
+        frequency_0 = central_frequency - n_channels / 2.0 * frequency_resolution
+    else:
+        frequency_0 = central_frequency - (n_channels - 1) / 2.0 * frequency_resolution
+
+    return frequency_0
