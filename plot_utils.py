@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from spectral_utils import *
 
 
-def plot_cube(cube, ncols, imshow_kwargs={}, subplots_kwargs={"wspace":0.01, "hspace":0.01}):
+def plot_cube(cube, ncols, cmin=None, cmax=None, xmin=None, xmax=None, ymin=None, ymax=None, cube_contours=None, figsize=None, imshow_kwargs={}, subplots_kwargs={"wspace":0.01, "hspace":0.01}):
     """
 
     Parameters
@@ -17,6 +17,14 @@ def plot_cube(cube, ncols, imshow_kwargs={}, subplots_kwargs={"wspace":0.01, "hs
     figsize: MAKE THIS AN INPUT
 
     """
+
+    if cmin is None:
+        cmin = 0
+    if cmax is None:
+        cmax = cube.shape[0]
+
+    # ...
+    cube = cube[cmin:cmax, :, :]
 
     # ...
     N = cube.shape[0]
@@ -31,8 +39,11 @@ def plot_cube(cube, ncols, imshow_kwargs={}, subplots_kwargs={"wspace":0.01, "hs
     # if figsize_x == 20:
     #     figsize_y = nrows * 4
 
-    figsize_x = 20
-    figsize_y = 10
+    if figsize is not None:
+        figsize_x, figsize_y = figsize
+    else:
+        figsize_x = 16
+        figsize_y = 8
 
     figure, axes = plt.subplots(
         nrows=nrows,
@@ -48,8 +59,8 @@ def plot_cube(cube, ncols, imshow_kwargs={}, subplots_kwargs={"wspace":0.01, "hs
     # vmin=vmin,
     # vmax=vmax
 
-    vmin = np.min(cube)
-    vmax = np.max(cube)
+    vmin = np.nanmin(cube)
+    vmax = np.nanmax(cube)
 
     k = 0
 
@@ -64,6 +75,8 @@ def plot_cube(cube, ncols, imshow_kwargs={}, subplots_kwargs={"wspace":0.01, "hs
                     vmax=vmax,
                     **imshow_kwargs
                 )
+                if cube_contours is not None:
+                    axes[i, j].contour(cube_contours[k, :, :])
                 axes[i, j].set_xticks([])
                 axes[i, j].set_yticks([])
                 k += 1
@@ -74,6 +87,7 @@ def plot_cube(cube, ncols, imshow_kwargs={}, subplots_kwargs={"wspace":0.01, "hs
         **subplots_kwargs
     )
     plt.show()
+
 
 
 

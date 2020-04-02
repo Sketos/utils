@@ -74,14 +74,14 @@ def get_spectrum_from_cube(cube):
         shape=(cube.shape[0],)
     )
     for i in range(len(y)):
-        y[i] = np.sum(cube[i, :, :])
+        y[i] = np.nansum(cube[i, :, :])
 
     return y
 
 
 def get_line_flux_from_spectrum(y, dv):
 
-    line_flux = np.sum(y) * dv
+    line_flux = np.nansum(y) * dv
 
     return line_flux
 

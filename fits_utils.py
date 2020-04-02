@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 from astropy import units as au
 from astropy.io import fits

@@ -1,3 +1,6 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import interpolate
 
 
 def interpolated_reconstruction(voronoi, values, grid):
@@ -10,16 +13,16 @@ def interpolated_reconstruction(voronoi, values, grid):
         fill_value=0.0
     )
 
-interpolated_reconstruction = interpolate.griddata(
-    fit.inversion.mapper.voronoi._points,
-    source_pixel_values,
-    grid.in_2d,
-    method="cubic",
-    fill_value=0.0
-)
+# interpolated_reconstruction = interpolate.griddata(
+#     fit.inversion.mapper.voronoi._points,
+#     source_pixel_values,
+#     grid.in_2d,
+#     method="cubic",
+#     fill_value=0.0
+# )
 
 
-def draw_voronoi_pixels(mapper, values, cmap, cb=None):
+def draw_voronoi_pixels(mapper, values, cmap, axes, alpha=1.0, fill_polygons=True, cb=None, min_value=None):
 
     regions, vertices = voronoi_polygons(voronoi=mapper.voronoi)
 
@@ -31,25 +34,55 @@ def draw_voronoi_pixels(mapper, values, cmap, cb=None):
         cmap = plt.get_cmap("Greys")
         color_array = np.zeros(shape=mapper.pixels)
 
-    for region, index in zip(regions, range(mapper.pixels)):
+    for i, (region, index) in enumerate(zip(regions, range(mapper.pixels))):
         polygon = vertices[region]
         col = cmap(color_array[index])
-        plt.fill(
-            *zip(*polygon),
-            edgecolor="black",
-            alpha=1.0,
-            facecolor=col,
-            lw=2
-        )
+        if min_value is not None:
+            if values[i] > min_value:
+                if fill_polygons:
+                    axes.fill(
+                        *zip(*polygon),
+                        edgecolor="black",
+                        alpha=alpha,
+                        facecolor=col,
+                        lw=1
+                    )
+                else:
+                    axes.fill(
+                        *zip(*polygon),
+                        edgecolor="black",
+                        alpha=alpha,
+                        facecolor="None",
+                        lw=1
+                    )
+        else:
+            if fill_polygons:
+                axes.fill(
+                    *zip(*polygon),
+                    edgecolor="black",
+                    alpha=alpha,
+                    facecolor=col,
+                    lw=1
+                )
+            else:
+                axes.fill(
+                    *zip(*polygon),
+                    edgecolor="black",
+                    alpha=alpha,
+                    facecolor="None",
+                    lw=1
+                )
 
-    plt.plot(
-        mapper.voronoi._points[:, 0],
-        mapper.voronoi._points[:, 1],
-        linestyle="None",
-        marker="o",color="black"
-    )
 
-    plt.show()
+    # plt.plot(
+    #     mapper.voronoi._points[:, 0],
+    #     mapper.voronoi._points[:, 1],
+    #     linestyle="None",
+    #     marker="o",color="black"
+    # )
+    #
+    # plt.show()
+
 
 def voronoi_polygons(voronoi, radius=None):
     """
