@@ -39,7 +39,12 @@ class emcee_wrapper:
 
         self.x = x
         self.y = y
-        self.yerr = yerr
+
+        # NOTE: What do I do in the case where I dont have yerr available 
+        if yerr is None:
+            raise ValueError
+        else:
+            self.yerr = yerr
 
         # ...
         self.n_walkers = n_walkers
