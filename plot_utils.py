@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from spectral_utils import *
+from spectral_utils import get_spectrum_from_cube
 
 
 def plot_cube(cube, ncols, cmin=None, cmax=None, xmin=None, xmax=None, ymin=None, ymax=None, cube_contours=None, figsize=None, imshow_kwargs={}, subplots_kwargs={"wspace":0.01, "hspace":0.01}):

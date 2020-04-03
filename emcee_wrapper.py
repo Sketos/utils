@@ -5,13 +5,20 @@ from multiprocessing import Pool
 
 
 # NOTE:
-def model(x, a, b, c):
+def model(x, theta):
+    a, b, c = theta
     return a * x**2.0 + b * x + c
 
 
 # NOTE:
-def log_likelihood_helper(theta):
-    pass
+def log_likelihood_helper(obj, theta):
+
+    y_model = model(obj.x, theta)
+
+    return -0.5 * np.sum(
+        (obj.y - y_model)**2.0 / obj.yerr**2.0 + np.log(2.0 * np.pi * obj.yerr**2.0)
+    )
+
 
 
 # NOTE: This will be added in the class as a staticmethod and be used in log_prior
@@ -40,31 +47,29 @@ class emcee_wrapper:
         self.x = x
         self.y = y
 
-        # NOTE: What do I do in the case where I dont have yerr available 
+        # NOTE: What do I do in the case where I dont have yerr available
         if yerr is None:
-            raise ValueError
+            self.yerr = np.ones(shape=self.y.shape)
         else:
             self.yerr = yerr
 
         # ...
-        self.n_walkers = n_walkers
-
-        # ...
         if mcmc_limits is None:
             raise ValueError
-        else:
-            self.theta = np.zeros(
-                shape=mcmc_limits.shape[0]
-            )
 
-        self.n_dim = len(self.theta)
+        self.par_min = mcmc_limits[:, 0]
+        self.par_max = mcmc_limits[:, 1]
 
-        self.par_min, self.par_max = mcmc_limits.T
-        self.par = self.initialize(
+        self.n_dim = mcmc_limits.shape[0]
+
+        self.n_walkers = n_walkers
+
+        # NOTE: ...
+        self.initial_state = self.initialize(
             par_min=self.par_min,
             par_max=self.par_max,
             n_dim=self.n_dim,
-            n_walkers=n_walkers
+            n_walkers=self.n_walkers
         )
 
     @staticmethod
@@ -94,11 +99,12 @@ class emcee_wrapper:
 
     def log_likelihood(self, theta):
 
-        y_model = model(self.x, *theta)
-
-        return -0.5 * np.sum(
-            (self.y - y_model)**2.0 / self.yerr**2.0 + np.log(2.0 * np.pi * self.yerr**2.0)
+        # NOTE: pass the object so that the helper function has the data.
+        _log_likelihood = log_likelihood_helper(
+            self, theta
         )
+
+        return _log_likelihood
 
 
     def log_probability(self,theta):
@@ -116,27 +122,46 @@ class emcee_wrapper:
         return self.log_probability(theta)
 
 
-    def run(self, parallel=False):
+    def run(self, nsteps, parallel=False):
 
         if parallel:
-            with Pool() as pool:
-                sampler = emcee.EnsembleSampler(
-                    self.n_walkers, self.n_dim, self.log_probability, pool=pool
-                )
-                sampler.run_mcmc(
-                    self.par, self.n_walkers, progress=True
-                )
+            pool = Pool()
         else:
-            sampler = emcee.EnsembleSampler(
-                self.n_walkers, self.n_dim, self.log_probability
-            )
-            sampler.run_mcmc(
-                self.par, self.n_walkers, progress=True
-            )
+            pool = None
+
+        sampler = emcee.EnsembleSampler(
+            nwalkers=self.n_walkers,
+            ndim=self.n_dim,
+            log_prob_fn=self.log_probability,
+            pool=pool
+        )
+
+        sampler.run_mcmc(
+            initial_state=self.initial_state,
+            nsteps=nsteps,
+            progress=True
+        )
 
         return sampler
 
 
+
+
+# class test_class:
+#     def __init__(self, x):
+#         self.x = x
+#
+#     def func(self):
+#
+#         other_func(obj=self)
+#
+# def other_func(obj):
+#     print(obj.x)
+#
+# o = test_class(x=2.0)
+# o.func()
+
+#exit()
 
 if __name__ == "__main__":
 
@@ -148,8 +173,9 @@ if __name__ == "__main__":
     a_true = 2.0
     b_true = -2.5
     c_true = 0.5
+    theta = [a_true, b_true, c_true]
     y = model(
-        x=x, a=a_true, b=b_true, c=c_true
+        x=x, theta=theta
     )
 
     yerr = np.random.normal(0.0, 0.2, size=len(x))
@@ -164,7 +190,7 @@ if __name__ == "__main__":
         x=x, y=y, yerr=yerr, mcmc_limits=model_parameter_limits, n_walkers=500
     )
 
-    sampler = obj.run(parallel=True)
+    sampler = obj.run(nsteps=500, parallel=False)
 
 
     flat_samples = sampler.get_chain(discard=100, thin=15, flat=True)
