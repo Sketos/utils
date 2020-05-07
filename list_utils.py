@@ -3,6 +3,8 @@
 import os
 import numpy as np
 
+# NOTE: filter can be turner into a class and also filtering string can be turned into a class
+
 
 def filter_input_list_of_strings_after_split_with_string(input_list_of_strings, split_character, string):
     """Short summary.
@@ -33,6 +35,7 @@ def filter_input_list_of_strings_after_split_with_string(input_list_of_strings, 
 
 
 def filter_input_list_of_strings_after_split_with_ending_string(input_list_of_strings, split_character, ending_string):
+
     output_list_of_strings = []
     for i, i_string in enumerate(input_list_of_strings):
         i_string_splitted = i_string.split(split_character)
@@ -43,6 +46,7 @@ def filter_input_list_of_strings_after_split_with_ending_string(input_list_of_st
 
 
 def filter_input_list_of_strings_after_split_with_starting_string(input_list_of_strings, split_character, starting_string):
+
     output_list_of_strings = []
     for i, i_string in enumerate(input_list_of_strings):
         i_string_splitted = i_string.split(split_character)
@@ -54,6 +58,7 @@ def filter_input_list_of_strings_after_split_with_starting_string(input_list_of_
 
 
 def filter_input_list_of_strings_with_starting_string(input_list_of_strings, starting_string):
+
     output_list_of_strings = []
     for i, i_string in enumerate(input_list_of_strings):
         if i_string.startswith(starting_string):

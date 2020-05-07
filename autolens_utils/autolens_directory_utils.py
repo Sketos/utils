@@ -18,6 +18,7 @@ def get_list_of_directory_trees_in_directory(directory):
         for x in os.walk(directory)
     ]
 
+
 def get_subphase_directory(x_i, x_j, y_i, y_j):
 
     str_0 = "galaxies_subhalo_mass_centre_0_" + "{0:.2f}".format(x_i) + "_" + "{0:.2f}".format(x_j)
@@ -69,7 +70,6 @@ def get_subphase_directories_for_gridsearch(phase_directory, xmin, xmax, ymin, y
         directories.append(directories_temp)
 
     return directories
-
 
 
 def get_samples_from_subphase_directories(directories):

@@ -2,6 +2,8 @@ import numpy as np
 from astropy import constants
 from astropy import units as au
 
+from dictionary_utils import *
+
 
 def convert_frequencies_to_velocities(frequencies, frequency_0, units=au.km / au.s):
     """
@@ -144,4 +146,29 @@ def moment_1(cube, velocities, axis=0):
 
 
 if __name__ == "__main__":
-    pass
+
+    
+
+
+
+
+    molecular_lines = {
+        "CII":{"restfreq":1900.536900}
+    }
+
+    molecular_lines["CII"]["restfreq"]
+
+    redshift = 4.342
+
+
+
+    obsfreq = observed_line_frequency_from_rest_line_frequency(
+        frequency=get_output_from_nested_dictionary(
+            molecular_lines,
+            "CII",
+            "restfreq"
+        ),
+        redshift=redshift
+    )
+
+    print(obsfreq)

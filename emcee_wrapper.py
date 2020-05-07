@@ -1,113 +1,243 @@
+import os
+import sys
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import emcee
 from multiprocessing import Pool
+import h5py
+from schwimmbad import MPIPool
+
+# NOTE: Not sure if this is actually needed ...
+os.environ["OMP_NUM_THREADS"] = "1"
+
+import emcee_plot_utils as emcee_plot_utils
 
 
-# NOTE:
-def model(x, theta):
-    a, b, c = theta
-    return a * x**2.0 + b * x + c
-
-
-# NOTE:
-def log_likelihood_helper(obj, theta):
-
-    y_model = model(obj.x, theta)
-
-    return -0.5 * np.sum(
-        (obj.y - y_model)**2.0 / obj.yerr**2.0 + np.log(2.0 * np.pi * obj.yerr**2.0)
-    )
-
-
-
-# NOTE: This will be added in the class as a staticmethod and be used in log_prior
-# def check(value, value_min, value_max):
-#     if value > value_min and value < value_max:
-#         return True
-#     return False
-#
-# value = 2.0
-# value_min = -5.0
-# value_max = 5.0
+# class emcee_wrapper:
 #
 #
-# # check_outcome = check(value=value, value_min=value_min, value_max=value_max)
-# # print(check_outcome)
+#     def __init__(self, data, log_likelihood_func):
+#         self.data = data
+#         self.log_likelihood_func = log_likelihood_func
 #
-# values = [-20.0, -10.0, 2.0]
-# args = (value_min, value_max)
-# check_outcomes = list(map(lambda val: check(val, *args), values))
-# print(check_outcomes)
+#         ...
+#         ...
+#         ...
+#
+#
+#     def log_likelihood(self, theta):
+#
+#         # NOTE: I am passing the obj itself, so that the log_likelihood func has the data
+#         _log_likelihood = self.log_likelihood_func(
+#             self, theta
+#         )
+#
+#         return _log_likelihood
+#
+#
+#     def log_probability(self, theta):
+#
+#         lp = self.log_prior(theta)
+#
+#         if not np.isfinite(lp):
+#             return -np.inf
+#         else:
+#             return lp + self.log_likelihood(theta=theta)
+#
+#
+#     def run(self, nsteps, parallel=False):
+#
+#         def run_func(nsteps, pool=None):
+#             sampler = emcee.EnsembleSampler(
+#                 nwalkers=self.nwalkers,
+#                 ndim=self.ndim,
+#                 log_prob_fn=self.log_probability,
+#                 backend=self.backend,
+#                 pool=pool
+#             )
+#
+#             sampler.run_mcmc(
+#                 initial_state=self.initial_state,
+#                 nsteps=nsteps - self.previous_nsteps,
+#                 progress=True
+#             )
+#
+#             return sampler
+#
+#         if parallel:
+#             with MPIPool() as pool:
+#                 if not pool.is_master():
+#                     pool.wait()
+#                     sys.exit(0)
+#
+#                 sampler = run_func(nsteps=nsteps, pool=pool)
+
+
 
 class emcee_wrapper:
 
-    def __init__(self, x, y, yerr, mcmc_limits, n_walkers=500):
+    # NOTE: move "limits", "nwalkers", "backend_filename" in the run_mcmc function of this class
+    def __init__(self, helper, log_likelihood_func, limits, p0, nwalkers=500, backend_filename="backend.h5", parallization="MPI", eps=1e-2):
 
-        self.x = x
-        self.y = y
-
-        # NOTE: What do I do in the case where I dont have yerr available
-        if yerr is None:
-            self.yerr = np.ones(shape=self.y.shape)
-        else:
-            self.yerr = yerr
+        # NOTE: This helper object
+        self.helper = helper
 
         # ...
-        if mcmc_limits is None:
+        if limits is None:
             raise ValueError
 
-        self.par_min = mcmc_limits[:, 0]
-        self.par_max = mcmc_limits[:, 1]
+        self.par_min = limits[:, 0]
+        self.par_max = limits[:, 1]
 
-        self.n_dim = mcmc_limits.shape[0]
+        self.ndim = limits.shape[0]
 
-        self.n_walkers = n_walkers
+        self.nwalkers = nwalkers
 
-        # NOTE: ...
-        self.initial_state = self.initialize(
-            par_min=self.par_min,
-            par_max=self.par_max,
-            n_dim=self.n_dim,
-            n_walkers=self.n_walkers
+        # NOTE: The backend is not working properly when a run is reset ...
+        self.backend = emcee.backends.HDFBackend(
+            filename=backend_filename
         )
 
-    @staticmethod
-    def initialize(par_min, par_max, n_dim, n_walkers):
+        self.previous_nsteps = 0
 
-        return np.array([
-            par_min + (par_max - par_min) * np.random.rand(n_dim)
-            for i in range(n_walkers)
-        ])
+        # NOTE: There is an issue with "backend.get_last_sample" when using MPI
+        self.parallization = parallization
+        if parallization == "MPI":
+            # NOTE: Previous version of the "initialize_state" function.
+            # self.initial_state = self.initialize_state(
+            #     par_min=self.par_min,
+            #     par_max=self.par_max,
+            #     ndim=self.ndim,
+            #     nwalkers=self.nwalkers
+            # )
+
+            self.initial_state = self.initialize_state(
+                p0=p0,
+                ndim=self.ndim,
+                nwalkers=self.nwalkers,
+                eps=eps
+            )
+            self.check_initial_state(
+                initial_state=self.initial_state,
+                par_min=self.par_min,
+                par_max=self.par_max
+            )
+
+            self.backend.reset(
+                self.nwalkers, self.ndim
+            )
+        else:
+            try:
+                self.initial_state = self.backend.get_last_sample()
+            except:
+                # NOTE: Previous version of the "initialize_state" function.
+                # self.initial_state = self.initialize_state(
+                #     par_min=self.par_min,
+                #     par_max=self.par_max,
+                #     ndim=self.ndim,
+                #     nwalkers=self.nwalkers
+                # )
+
+                self.initial_state = self.initialize_state(
+                    p0=p0,
+                    ndim=self.ndim,
+                    nwalkers=self.nwalkers,
+                    eps=eps
+                )
+                self.check_initial_state(
+                    initial_state=self.initial_state,
+                    par_min=self.par_min,
+                    par_max=self.par_max
+                )
+
+                self.backend.reset(
+                    self.nwalkers, self.ndim
+                )
+
+        self.previous_nsteps += self.backend.iteration
+
+        # NOTE:
+        self.log_likelihood_func = log_likelihood_func
+
+
+    # @staticmethod
+    # def initialize_state(par_min, par_max, ndim, nwalkers):
+    #
+    #     return np.array([
+    #         par_min + (par_max - par_min) * np.random.rand(ndim)
+    #         for i in range(nwalkers)
+    #     ])
+
+
+    @staticmethod
+    def initialize_state(p0, ndim, nwalkers, eps=1e-5):
+
+        # np.random.seed(
+        #     int(time.time())
+        # )
+
+        return p0 + eps * np.random.randn(
+            nwalkers,
+            ndim
+        )
+
+
+    def check_initial_state(self, initial_state, par_min, par_max):
+
+        for i in range(initial_state.shape[0]):
+
+            conditions = self.log_prior_conditions(
+                values=initial_state[i, :],
+                values_min=par_min,
+                values_max=par_max
+            )
+            #print(conditions)
+            
+            if np.all(conditions):
+                pass
+            else:
+                raise ValueError
 
 
     def log_prior(self, theta):
 
-        # NOTE: make this a function
-        condition = np.zeros(
-            shape=self.n_dim, dtype=bool
+        conditions = self.log_prior_conditions(
+            values=theta,
+            values_min=self.par_min,
+            values_max=self.par_max
         )
-        for n in range(len(theta)):
-            if self.par_min[n] < theta[n] < self.par_max[n]:
-                condition[n] = True
 
-        if np.all(condition):
+        if np.all(conditions):
             return 0.0
         else:
             return -np.inf
 
 
+    def log_prior_conditions(self, values, values_min, values_max):
+
+        conditions = np.zeros(
+            shape=values.shape, dtype=bool
+        )
+
+        for i, value in enumerate(values):
+            if values_min[i] < value < values_max[i]:
+                conditions[i] = True
+
+        return conditions
+
+
     def log_likelihood(self, theta):
 
-        # NOTE: pass the object so that the helper function has the data.
-        _log_likelihood = log_likelihood_helper(
+        # NOTE: pass the object to have flexibility on what to do on the log_likelihood function.
+        _log_likelihood = self.log_likelihood_func(
             self, theta
         )
 
         return _log_likelihood
 
 
-    def log_probability(self,theta):
+    def log_probability(self, theta):
 
         lp = self.log_prior(theta)
 
@@ -117,53 +247,147 @@ class emcee_wrapper:
             return lp + self.log_likelihood(theta=theta)
 
 
-    # NOTE: This function makes the "log_probability" pickleable.
-    def __call__(self, theta):
-        return self.log_probability(theta)
+    # NOTE: This function makes the "log_probability" pickleable. I dont think so ...
+    #def __call__(self, theta):
+    #    return self.log_probability(theta)
 
 
     def run(self, nsteps, parallel=False):
 
+        def run_func(nsteps, pool=None):
+            sampler = emcee.EnsembleSampler(
+                nwalkers=self.nwalkers,
+                ndim=self.ndim,
+                log_prob_fn=self.log_probability,
+                backend=self.backend,
+                pool=pool
+            )
+
+            sampler.run_mcmc(
+                initial_state=self.initial_state,
+                nsteps=nsteps - self.previous_nsteps,
+                progress=True
+            )
+
+            return sampler
+
+        # NOTE: I need to able to check if MPI is possible
+        # NOTE: Does it make sense to return the sampler when in parallel mode?
+        # NOTE: MPI is not working
         if parallel:
-            pool = Pool()
+            if self.parallization == "MPI":
+                with MPIPool() as pool:
+                    if not pool.is_master():
+                        pool.wait()
+                        sys.exit(0)
+
+                    sampler = run_func(nsteps=nsteps, pool=pool)
+            else:
+                with Pool() as pool:
+                    sampler = run_func(nsteps=nsteps, pool=pool)
         else:
-            pool = None
-
-        sampler = emcee.EnsembleSampler(
-            nwalkers=self.n_walkers,
-            ndim=self.n_dim,
-            log_prob_fn=self.log_probability,
-            pool=pool
-        )
-
-        sampler.run_mcmc(
-            initial_state=self.initial_state,
-            nsteps=nsteps,
-            progress=True
-        )
+            sampler = run_func(nsteps=nsteps)
 
         return sampler
 
 
+# NOTE:
+def model(x, theta):
+
+    a, b, c = theta
+
+    return a * x**2.0 + b * x + c
+
+# def model(x, theta):
+#
+#     a, b, c, d, e = theta
+#
+#     return a * x**2.0 + b * x + c + np.exp(-d * x**2.0) + e * x**3.0
 
 
-# class test_class:
-#     def __init__(self, x):
-#         self.x = x
-#
-#     def func(self):
-#
-#         other_func(obj=self)
-#
-# def other_func(obj):
-#     print(obj.x)
-#
-# o = test_class(x=2.0)
-# o.func()
 
-#exit()
+# NOTE:
+def log_likelihood_func(obj, theta):
+
+    def noise_normalization(y_error):
+        return np.sum(
+            np.log(2.0 * np.pi * y_error**2.0)
+        )
+
+    y_model = model(obj.helper.data.x, theta)
+
+    #print(noise_normalization(y_error=obj.helper.data.y_error))
+
+    return -0.5 * (
+        np.sum(
+            (obj.helper.data.y - y_model)**2.0 / obj.helper.data.y_error**2.0
+        )
+        + noise_normalization(y_error=obj.helper.data.y_error)
+    )
+
+# NOTE:
+class Data:
+    def __init__(self, x, y, y_error):
+
+        self.x = x
+        self.y = y
+
+        # NOTE: ...
+        if y_error is None:
+            self.y_error = np.ones(shape=self.y.shape)
+        else:
+            self.y_error = y_error
+
+
+class helper:
+    def __init__(self, data):
+        self.data = data
+
+
+def get_random_state_from_limits(limits):
+
+    # np.random.seed(
+    #     int(time.time())
+    # )
+
+    return np.array(
+        limits[:, 0] + (limits[:, 1] - limits[:, 0]) * np.random.rand(limits.shape[0])
+    )
+
+
+# def get_random_state_from_limits(limits, types=None):
+#
+#     # np.random.seed(
+#     #     int(time.time())
+#     # )
+#
+#     lower_limits = limits[:, 0]
+#     upper_limits = limits[:, 1]
+#
+#     random_state = np.zeros(
+#         shape=limits.shape[0],
+#         dtype=np.float
+#     )
+#
+#     for i in range(limits.shape[0]):
+#         if types[i] == "Uniform":
+#             random_state[i] =
+#     exit()
+#
+#     # if types is None:
+#     #     types =
+#     #
+#     # 10.0 ** (
+#     #             np.log10(self.lower_limit)
+#     #             + unit * (np.log10(self.upper_limit) - np.log10(self.lower_limit))
+#     #     )
+#     #
+#     # return np.array(
+#     #     limits[:, 0] + (limits[:, 1] - limits[:, 0]) * np.random.rand(limits.shape[0])
+#     # )
 
 if __name__ == "__main__":
+    os.system("rm backend.h5")
 
     xmin = -1.0
     xmax = 2.0
@@ -173,36 +397,102 @@ if __name__ == "__main__":
     a_true = 2.0
     b_true = -2.5
     c_true = 0.5
+    d_true = -0.5
+    e_true = 1.5
     theta = [a_true, b_true, c_true]
+    #theta = [a_true, b_true, c_true, d_true, e_true]
     y = model(
         x=x, theta=theta
     )
 
-    yerr = np.random.normal(0.0, 0.2, size=len(x))
-    y += yerr
+    y_error = np.random.normal(0.0, 0.2, size=len(x))
+    y += y_error
 
-
-    model_parameter_limits = np.array([
-        [-5.0,5.0], [-5.0,5.0], [-5.0,5.0],
-    ])
-
-    obj = emcee_wrapper(
-        x=x, y=y, yerr=yerr, mcmc_limits=model_parameter_limits, n_walkers=500
-    )
-
-    sampler = obj.run(nsteps=500, parallel=False)
-
-
-    flat_samples = sampler.get_chain(discard=100, thin=15, flat=True)
-
-    # plt.figure()
-    # plt.errorbar(x, y, yerr=yerr, linestyle="None", marker="o")
+    # plt.errorbar(x, y, y_error=y_error)
     # plt.show()
     # exit()
 
-    import corner
 
-    fig = corner.corner(
-        flat_samples, labels=["a", "b", "c"], truths=[a_true, b_true, c_true]
+
+    helper_obj = helper(
+        data=Data(
+            x=x,
+            y=y,
+            y_error=y_error
+        )
     )
-    plt.show()
+
+
+    limits = np.array([
+        [-50.0, 50.0],
+        [-50.0, 50.0],
+        [-50.0, 50.0],
+    ])
+    # limits = np.array([
+    #     [-5.0, 5.0],
+    #     [-5.0, 5.0],
+    #     [-5.0, 5.0],
+    #     [-5.0, 5.0],
+    #     [0.0, 5.0],
+    # ])
+
+    #p0 = [-25.0, 25.0, 10.0]
+    #p0 = [-2.5, 2.5, 1.0, 0.0, 2.0]
+    p0 = get_random_state_from_limits(
+        limits=limits
+    )
+
+
+
+    # NOTE:
+    backend_directory = os.path.dirname(
+        os.path.realpath(__file__)
+    )
+    backend_filename = "backend.h5"
+    os.system(
+        "rm {}/{}".format(
+            backend_directory, backend_filename
+        )
+    )
+    obj = emcee_wrapper(
+        helper=helper_obj,
+        log_likelihood_func=log_likelihood_func,
+        limits=limits,
+        p0=p0,
+        nwalkers=200,
+        backend_filename="{}/{}".format(
+            backend_directory, backend_filename
+        ),
+        parallization="MPI"
+    )
+
+    # NOTE:
+    sampler = obj.run(
+        nsteps=200,
+        parallel=False
+    )
+
+
+    chain = sampler.get_chain(
+        discard=0,
+        thin=1,
+        flat=False
+    )
+
+    emcee_plot_utils.plot_chain(chain=chain, ncols=2, figsize=(20, 6), truths=theta)
+
+
+
+    # # # plt.figure()
+    # # # plt.errorbar(x, y, y_error=y_error, linestyle="None", marker="o")
+    # # # plt.show()
+    # # # exit()
+    #
+    # import corner
+    #
+    # fig = corner.corner(
+    #     flat_samples, truths=theta
+    # )
+    # plt.show()
+    #
+    # # NOTE: If no errors are added then the true value is recovered exactly, otherwise the best-fit value is within the 1sigma
