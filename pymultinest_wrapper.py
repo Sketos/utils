@@ -7,28 +7,43 @@ import scipy.stats, scipy
 import pymultinest
 import matplotlib.pyplot as plt
 
+import pymultinest_utils as pymultinest_utils
 import getdist_utils as getdist_utils
 
 
 class pymultinest_wrapper:
 
-    def __init__(self, helper, log_likelihood_func, parameters, prior_limits):
+    def __init__(self, helper, log_likelihood_func, prior_limits, parameters=None):
 
         self.helper = helper
+        if not hasattr(self.helper, "prior_model"):
+            raise AttributeError("...")
+        elif getattr(self.helper, "prior_model") is None:
+            raise ValueError("...")
+        else:
+            pass
 
         self.log_likelihood_func = log_likelihood_func
 
         # NOTE: This should be combined as one thingy
-        self.parameters = parameters
         self.prior_limits = prior_limits
+        if parameters is None:
+            raise ValueError("...")
+        else:
+            if parameters.shape[0] != self.prior_limits.shape[0]:
+                raise ValueError(
+                    "The length of the parameters array does not match the prior_limits"
+                )
+            else:
+                self.parameters = parameters
 
 
-    def run(self, output_directory=None, n_live_points=100, const_efficiency_mode=False):
+    def run(self, output_directory=None, n_live_points=100, const_efficiency_mode=True, evidence_tolerance=0.5):
 
         def log_likelihood(cube, ndim, nparams):
 
             _log_likelihood = self.log_likelihood_func(
-                obj=self, cube=cube
+                obj=self, theta=cube
             )
 
             return _log_likelihood
@@ -56,7 +71,11 @@ class pymultinest_wrapper:
             pass
 
 
-        # NOTE:
+        # NOTE: ...
+        if not os.path.isdir(output_directory):
+            os.system(
+                "mkdir {}".format(output_directory)
+            )
         np.savetxt(
             "{}/multinest_.paramnames".format(
                 output_directory
@@ -67,7 +86,7 @@ class pymultinest_wrapper:
             ]),
             fmt="%s"
         )
-        
+
         # NOTE:
         pymultinest.run(
             log_likelihood,
@@ -78,6 +97,7 @@ class pymultinest_wrapper:
             ),
             n_live_points=n_live_points,
             const_efficiency_mode=const_efficiency_mode,
+            evidence_tolerance=evidence_tolerance,
             resume=False,
             verbose=True
         )
@@ -93,22 +113,15 @@ def model(x, theta):
 
 
 # NOTE:
-def log_likelihood_func(obj, cube):
+def log_likelihood_func(obj, theta):
 
     def error_normalization(yerr):
 
         return np.log(2.0 * np.pi * yerr**2.0)
 
-    # NOTE: ...
-    if isinstance(cube, ctypes.POINTER(ctypes.c_double)):
-        theta = np.zeros(
-            shape=(len(obj.parameters)),
-            dtype=np.float
-        )
-        for i in range(len(obj.parameters)):
-            theta[i] = cube[i]
-    else:
-        pass
+    theta = pymultinest_utils.sanitize(
+        theta=theta, theta_len=len(obj.parameters)
+    )
 
     y_model = model(obj.helper.data.x, theta)
 
@@ -170,7 +183,7 @@ if __name__ == "__main__":
 
     param_0 = 0.5
     param_1 = 0.1
-    param_2 = 0.5
+    param_2 = 0.75
     theta = [param_0, param_1, param_2]
 
     y = model(x, theta)
@@ -202,7 +215,7 @@ if __name__ == "__main__":
         prior_model=PriorModel()
     )
 
-    parameters = ["a", "b", "c"]
+    parameters = np.array(["a", "b", "c"])
 
     obj = pymultinest_wrapper(
         helper=helper,
@@ -217,17 +230,30 @@ if __name__ == "__main__":
     os.system(
         "rm {}/multinest_*".format(output_directory)
     )
-    obj.run(output_directory=output_directory)
+    obj.run(
+        output_directory=output_directory,
+        n_live_points=100,
+        const_efficiency_mode=False,
+        evidence_tolerance=0.1
+    )
 
     #json.dump(parameters, open("{}/multinest_.json".format(output_directory), 'w'))
 
-
-
-    getdist_utils.triangle_plot(
+    plotter = getdist_utils.triangle_plot(
         directory=output_directory,
         suffix="_",
         width_inch=16
     )
+    for i in range(plotter.subplots.shape[0]):
+        for j in range(plotter.subplots.shape[1]):
+            axes = plotter.subplots[i, j]
+            if axes is not None:
+                axes.axvline(
+                    theta[i],
+                    color='black',
+                    linestyle='--'
+                )
+    plt.show()
 
 
     # def results(helper, output_directory):

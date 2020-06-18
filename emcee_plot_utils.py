@@ -4,7 +4,7 @@ import emcee
 import corner
 
 
-def plot_chain(chain, log_prob=None, ncols=5, figsize=None, walkers=None, truths=None):
+def plot_chain(chain, log_prob=None, ncols=5, figsize=None, walkers=None, truths=None, limits=None, title=None, ylabels=None):
 
     # ...
     if chain.shape[-1] % ncols == 0:
@@ -42,7 +42,17 @@ def plot_chain(chain, log_prob=None, ncols=5, figsize=None, walkers=None, truths
                 if truths is not None:
                     axes[i, j].axhline(truths[k], linestyle="--", color="b")
 
-                axes[i, j].set_ylabel("param_{}".format(k))
+                if limits is not None:
+                    axes[i, j].set_ylim((limits[k, 0], limits[k, 1]))
+
+                    axes[i, j].set_yticks(np.linspace(limits[k, 0], limits[k, 1], 3))
+
+                if ylabels is not None:
+                    axes[i, j].set_ylabel(
+                        r"{}".format(ylabels[k])
+                    )
+                else:
+                    axes[i, j].set_ylabel("param_{}".format(k))
 
 
 
@@ -63,13 +73,17 @@ def plot_chain(chain, log_prob=None, ncols=5, figsize=None, walkers=None, truths
                     k += 1
 
 
-    plt.subplots_adjust(left=0.05, right=0.995)
+    if title is not None:
+        figure.suptitle(title)
+
+
+    plt.subplots_adjust(wspace=0.25, left=0.05, right=0.995)
 
     plt.show()
 
 
 # NOTE: Move this function to the main "plot_utils.py"
-def plot_corner(chain, c, truths=None, labels=None, s=50, figsize=(10, 9)):
+def plot_corner(chain, c, truths=None, labels=None, s=10, figsize=(10, 9)):
 
     #print(chain.shape)
 
@@ -85,19 +99,31 @@ def plot_corner(chain, c, truths=None, labels=None, s=50, figsize=(10, 9)):
     for i in range(N):
 
         for j in range(0, i + 1):
-            #print( i, j, j, i+1)
+            print(i, j)
+
+            axes[i, j].plot(
+                chain[:, j],
+                chain[:, i+1],
+                linewidth=1,
+                color="black",
+                alpha=0.5
+            )
 
             sc = axes[i, j].scatter(
                 chain[:, j],
                 chain[:, i+1],
                 cmap="jet",
                 c=c,
-                s=s
+                s=s,
+                alpha=0.5
             )
+
+
 
             if truths:
                 axes[i, j].axvline(truths[j], linestyle="--", color="black")
                 axes[i, j].axhline(truths[i+1], linestyle="--", color="black")
+                axes[i, j].plot([truths[j]],[truths[i+1]], linestyle="None", marker="o", markersize=10, color="black")
 
             if i != N-1:
                 axes[i, j].set_xticks([])
@@ -141,6 +167,8 @@ def plot_log_prob(log_prob, truth=None, xlabel="# of steps", ylabel="-logL", xli
     figure = plt.figure(
         figsize=(10, 5)
     )
+
+
     for i in range(log_prob.shape[1]):
         plt.plot(
             np.arange(log_prob.shape[0]),
@@ -165,15 +193,89 @@ def plot_log_prob(log_prob, truth=None, xlabel="# of steps", ylabel="-logL", xli
     plt.yscale("log")
     plt.show()
 
+def plot_list_of_log_probs(list_of_log_probs, truth=None, xlabel="# of steps", ylabel="-Likelihood", xlim=None, ylim=None, legends=None):
+
+    figure = plt.figure(
+        figsize=(10, 5)
+    )
+
+    # TODO: initialize random colors
+    colors = ["b", "r"]
+
+    legend_conditions = np.full(
+        shape=(len(legends), ), fill_value=True
+    )
+
+    for j, log_prob in enumerate(list_of_log_probs):
+        for i in range(log_prob.shape[1]):
+
+            plt.plot(
+                np.arange(log_prob.shape[0]),
+                -log_prob[:, i],
+                color=colors[j],
+                alpha=0.5,
+                label=legends[j] if legends is not None and legend_conditions[j] else None
+            )
+            if legend_conditions[j]:
+                legend_conditions[j] = False
+
+    if truth:
+        plt.axhline(
+            -truth,
+            linestyle="--",
+            color="black"
+        )
+
+    plt.xlabel(xlabel, fontsize=15)
+    plt.ylabel(ylabel, fontsize=15)
+    if xlim:
+        plt.xlim(xlim)
+    if ylim:
+        plt.ylim(ylim)
+    plt.yscale("log")
+    if legends is not None:
+        plt.legend(fontsize=15)
+    plt.show()
+
+
+def get_best_fit_parameters_from_chain_as_50th_percentile(chain):
+
+
+    if len(chain.shape) == 2:
+        pass
+    elif len(chain.shape) == 3:
+        chain = chain.reshape(-1, chain.shape[-1])
+    else:
+        raise ValueError
+
+    best_fit_parameters = np.zeros(
+        shape=chain.shape[-1],
+        dtype=np.float
+    )
+    for i in range(chain.shape[-1]):
+        best_fit_parameters[i] = np.percentile(
+            a=chain[:, i], q=50.0
+        )
+
+    return best_fit_parameters
+
 if __name__ =="__main__":
 
     flat = False
     thin = 1
     discard = 0
 
-    # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/backends/backend_masked_AzTEC1_nwalkers_400_nsteps_1000.h5"
-    # discard = 100
+    # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/pyBBarolo__backend_nwalkers_200_nsteps_4000.h5"
     # truths = None
+
+    # filename = "/Users/ccbh87/Desktop/COSMA/cosma/home/durham/dc-amvr1/workspace/runners/interferometer/HATLAS_J090311.6+003906_2016.1.01093.S__backend_nwalkers_200_nsteps_4000.h5"
+    # truths = None
+    # log_prob_truth = None
+
+    filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/backends/backend_masked_AzTEC1_nwalkers_400_nsteps_1000.h5"
+    discard = 350
+    truths = None
+    log_prob_truth = None
 
     # NOTE: THIS IS NOT WORKING ...
     # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/backend_with_lensing_nwalkers_200_nsteps_2000.h5"
@@ -199,12 +301,37 @@ if __name__ =="__main__":
     # truths = [5.0e+01,  5.0e+01,  1.6e+01,  2.5e-01,  7.5e+00,  5.0e+01,  6.5e+01,  2.0e+00, 3.0e+02,  5.0e+01]
     #
     # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/backend_with_lensing_nwalkers_400_nsteps_2000.h5"
-    # discard = 1500
+    # discard = 3500
     # truths = [5.0e+01,  5.0e+01,  1.6e+01,  2.5e-01,  7.5e+00,  5.0e+01,  6.5e+01,  2.0e+00, 3.0e+02,  5.0e+01, -5.0e-02,  1.0e-01,  7.5e-01,  4.5e+01,  1.0e+00]
 
-    filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/fit_continuum_and_kinematics_backend_with_lensing_nwalkers_300_nsteps_4000.h5"
-    discard = 100
-    truths = None
+    # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/fit_continuum_and_kinematics_backend_with_lensing_nwalkers_300_nsteps_4000.h5"
+    # discard = 100
+    # truths = None
+
+    # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/fit_continuum_and_kinematics_real_plane_CONTINUUM__backend_nwalkers_200_nsteps_3000.h5"
+    # discard = 1000
+    # truths = [0.0, 0.0, 0.75, 50.0, 5e-05, 0.25]
+
+
+    # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/fit_continuum_and_kinematics_real_plane_LINE__backend_nwalkers_200_nsteps_3000.h5"
+    # discard = 1500
+    # truths = [50, 50, 16.0, 0.25, 7.5, 50.0, 65.0, 2.0, 300.0, 50.0]
+
+    # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/fit_continuum_and_kinematics_real_plane_SIMULTANEOUS_MODERETELYFINETUNNED__backend_nwalkers_200_nsteps_4000.h5"
+    # truths = None
+
+    # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/fit_continuum_and_kinematics_real_plane_SIMULTANEOUS_INITIALIZE_AROUND_TRUTH__backend_nwalkers_200_nsteps_4000.h5"
+    # truths = [0.0, 0.0, 0.75, 50.0, 5e-05, 0.25, 50, 50, 16.0, 0.25, 7.5, 50.0, 65.0, 2.0, 300.0, 50.0]
+
+    # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/fit_continuum_and_kinematics_real_plane_CLEAN_SIMULTANEOUS_NOVELTY__backend_nwalkers_200_nsteps_4000.h5"
+    # truths = [0.0, 0.0, 0.75, 50.0, 0.00005, 0.25, 1.0, 0.0, 0.0, 16.0, 0.5, 0.5, 40.0, 50.0, 0.1, 200.0, 50.0]
+    # log_prob_truth = -160000.23726599006
+
+    # filename = "/Users/ccbh87/Desktop/GitHub/UVgalpak3D/fit_continuum_and_kinematics_real_plane_CLEAN_SIMULTANEOUS_NOVELTY_TRUTHINIT__backend_nwalkers_200_nsteps_4000.h5"
+    # truths = [0.0, 0.0, 0.75, 50.0, 0.00005, 0.25, 1.0, 0.0, 0.0, 16.0, 0.5, 0.5, 40.0, 50.0, 0.1, 200.0, 50.0]
+    # log_prob_truth = -160000.23726599006
+    # discard = 200
+
 
     backend = emcee.backends.HDFBackend(filename)
     log_prob = backend.get_log_prob(
@@ -218,7 +345,7 @@ if __name__ =="__main__":
     # plot_log_prob(log_prob=log_prob)
     # exit()
 
-
+    # NOTE: ...
     # idx = filter_chain(
     #     chain=chain,
     #     parameter_indexes=[0, 1],
@@ -228,22 +355,25 @@ if __name__ =="__main__":
     # chain = chain[:, idx, :]
     # log_prob = log_prob[:, idx]
 
-    log_prob_min = - 5.0 * 10**9.0
+    # NOTE: ...
+    #log_prob_min = - 5.0 * 10**9.0
+    #log_prob_min = - 1.0 * 10**8.0
+    #log_prob_min = - 1.0 * 10**9.0
+    log_prob_min = - 4.8944 * 10**7.0
     idx = np.where(
         log_prob[-1, :] > log_prob_min
     )
-
     chain = chain[:, idx[0], :]
     log_prob = log_prob[:, idx[0]]
 
 
 
-    plot_log_prob(
-        log_prob=log_prob,
-        xlim=(0, 2000)
-    )
-    #ylim=(5.0 * 10**4.0, 5.0 * 10**10.0))
-    exit()
+    # plot_log_prob(
+    #     log_prob=log_prob,
+    #     truth=log_prob_truth,
+    #     xlim=(0, 400)
+    # )
+    # exit()
 
     #exit()
 
@@ -287,15 +417,24 @@ if __name__ =="__main__":
     exit()
     """
 
-    plot_chain(chain=chain, log_prob=None, ncols=5, figsize=(20, 6), walkers=None, truths=truths)
+    plot_chain(
+        chain=chain,
+        log_prob=None,
+        ncols=4,
+        figsize=(20, 6),
+        walkers=None,
+        truths=truths,
+        title="N={} steps have been discarded".format(discard),
+        ylabels=["x", "y", "z", "flux", "R", "i", r"$\theta$", "$r_{t}$", "$V_{max}$", "$\sigma$"]
+    )
     exit()
 
-    fig = corner.corner(
-        xs=chain.reshape(-1, chain.shape[-1]),
-        bins=20,
-    )
-    plt.show()
-    exit()
+    # fig = corner.corner(
+    #     xs=chain.reshape(-1, chain.shape[-1]),
+    #     bins=20,
+    # )
+    # plt.show()
+    # exit()
 
     #exit()
 
@@ -368,27 +507,7 @@ if __name__ =="__main__":
     #print(chain.shape);exit()
 
 
-    def get_best_fit_parameters_from_chain_as_50th_percentile(chain):
 
-
-        if len(chain.shape) == 2:
-            pass
-        elif len(chain.shape) == 3:
-            chain = chain.reshape(-1, chain.shape[-1])
-        else:
-            raise ValueError
-
-        best_fit_parameters = np.zeros(
-            shape=chain.shape[-1],
-            dtype=np.float
-        )
-        for i in range(chain.shape[-1]):
-            best_fit_parameters[i] = np.percentile(
-                a=chain[:, i], q=50.0
-            )
-
-        print(best_fit_parameters)
-        return best_fit_parameters
 
     # get_best_fit_parameters_from_chain_as_50th_percentile(chain)
     # exit()

@@ -1,15 +1,19 @@
-# NOTE: A LOT NEED TO CHANGE HERE ...
-
-# TODO: The samples in the 2dmarginal plot need not be in a grid.
-
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import getdist
 #from getdist import plots, MCSamples
 
-from list_utils import *
-from directory_utils import *
+sys.path.append(
+    "{}/utils".format(os.environ["GitHub"])
+)
+import list_utils as list_utils
+import directory_utils as directory_utils
+
+
+# NOTE: A LOT NEED TO CHANGE HERE ...
+# TODO: The samples in the 2dmarginal plot need not be in a grid.
 
 
 def get_list_of_directory_trees_in_directory(directory):
@@ -24,7 +28,10 @@ def get_subphase_directory(x_i, x_j, y_i, y_j):
     str_0 = "galaxies_subhalo_mass_centre_0_" + "{0:.2f}".format(x_i) + "_" + "{0:.2f}".format(x_j)
     str_1 = "galaxies_subhalo_mass_centre_1_" + "{0:.2f}".format(y_i) + "_" + "{0:.2f}".format(y_j)
 
-    return str_0 + "_" + str_1
+    return "{}_{}".format(
+        str_0,
+        str_1
+    )
 
 
 def get_subphase_directories_for_gridsearch(phase_directory, xmin, xmax, ymin, ymax, number_of_steps):
@@ -41,14 +48,14 @@ def get_subphase_directories_for_gridsearch(phase_directory, xmin, xmax, ymin, y
             )
 
             # TODO: sanitize the phase directory
-            phase_directory = sanitize_directory(
+            phase_directory = directory_utils.sanitize_directory(
                 directory=phase_directory
             )
             subphase_directory = phase_directory + "/" + subphase_directory
             if not os.path.isdir(subphase_directory):
                 raise IOError(subphase_directory + " does not exist")
 
-            list_of_directory_trees_filtered = filter_input_list_of_strings_after_split_with_ending_string(
+            list_of_directory_trees_filtered = list_utils.filter_input_list_of_strings_after_split_with_ending_string(
                 input_list_of_strings=get_list_of_directory_trees_in_directory(
                     directory=subphase_directory
                 ),

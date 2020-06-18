@@ -6,11 +6,12 @@ import matplotlib.pyplot as plt
 import emcee
 from multiprocessing import Pool
 import h5py
-from schwimmbad import MPIPool
+#from schwimmbad import MPIPool # NOTE: This is not curerntly implemented and it's not working on COSMA
 
-# NOTE: Not sure if this is actually needed ...
-os.environ["OMP_NUM_THREADS"] = "1"
+# # NOTE: Not sure if this is actually needed ...
+# os.environ["OMP_NUM_THREADS"] = "1"
 
+import cosma_utils as cosma_utils
 import emcee_plot_utils as emcee_plot_utils
 
 
@@ -78,7 +79,7 @@ import emcee_plot_utils as emcee_plot_utils
 class emcee_wrapper:
 
     # NOTE: move "limits", "nwalkers", "backend_filename" in the run_mcmc function of this class
-    def __init__(self, helper, log_likelihood_func, limits, p0, nwalkers=500, backend_filename="backend.h5", parallization="MPI", eps=1e-2):
+    def __init__(self, helper, log_likelihood_func, limits, p0, nwalkers=500, backend_filename="backend.h5", parallization=False, eps=1e-3):
 
         # NOTE: This helper object
         self.helper = helper
@@ -103,31 +104,7 @@ class emcee_wrapper:
 
         # NOTE: There is an issue with "backend.get_last_sample" when using MPI
         self.parallization = parallization
-        if parallization == "MPI":
-            # NOTE: Previous version of the "initialize_state" function.
-            # self.initial_state = self.initialize_state(
-            #     par_min=self.par_min,
-            #     par_max=self.par_max,
-            #     ndim=self.ndim,
-            #     nwalkers=self.nwalkers
-            # )
-
-            self.initial_state = self.initialize_state(
-                p0=p0,
-                ndim=self.ndim,
-                nwalkers=self.nwalkers,
-                eps=eps
-            )
-            self.check_initial_state(
-                initial_state=self.initial_state,
-                par_min=self.par_min,
-                par_max=self.par_max
-            )
-
-            self.backend.reset(
-                self.nwalkers, self.ndim
-            )
-        else:
+        if not self.parallization:
             try:
                 self.initial_state = self.backend.get_last_sample()
             except:
@@ -145,8 +122,8 @@ class emcee_wrapper:
                     nwalkers=self.nwalkers,
                     eps=eps
                 )
-                self.check_initial_state(
-                    initial_state=self.initial_state,
+                self.check_state(
+                    state=self.initial_state,
                     par_min=self.par_min,
                     par_max=self.par_max
                 )
@@ -154,6 +131,34 @@ class emcee_wrapper:
                 self.backend.reset(
                     self.nwalkers, self.ndim
                 )
+        elif self.parallization in ["MPI", "OpenMP"]:
+            # NOTE: Previous version of the "initialize_state" function.
+            # self.initial_state = self.initialize_state(
+            #     par_min=self.par_min,
+            #     par_max=self.par_max,
+            #     ndim=self.ndim,
+            #     nwalkers=self.nwalkers
+            # )
+
+            self.initial_state = self.initialize_state(
+                p0=p0,
+                ndim=self.ndim,
+                nwalkers=self.nwalkers,
+                eps=eps
+            )
+            self.check_state(
+                state=self.initial_state,
+                par_min=self.par_min,
+                par_max=self.par_max
+            )
+
+            self.backend.reset(
+                self.nwalkers, self.ndim
+            )
+        else:
+            raise ValueError("...")
+
+
 
         self.previous_nsteps += self.backend.iteration
 
@@ -183,17 +188,16 @@ class emcee_wrapper:
         )
 
 
-    def check_initial_state(self, initial_state, par_min, par_max):
+    def check_state(self, state, par_min, par_max):
 
-        for i in range(initial_state.shape[0]):
+        for i in range(state.shape[0]):
 
             conditions = self.log_prior_conditions(
-                values=initial_state[i, :],
+                values=state[i, :],
                 values_min=par_min,
                 values_max=par_max
             )
-            #print(conditions)
-            
+
             if np.all(conditions):
                 pass
             else:
@@ -276,12 +280,14 @@ class emcee_wrapper:
         # NOTE: MPI is not working
         if parallel:
             if self.parallization == "MPI":
-                with MPIPool() as pool:
-                    if not pool.is_master():
-                        pool.wait()
-                        sys.exit(0)
 
-                    sampler = run_func(nsteps=nsteps, pool=pool)
+                raise ValueError("This is not currently implemented")
+                # with MPIPool() as pool:
+                #     if not pool.is_master():
+                #         pool.wait()
+                #         sys.exit(0)
+                #
+                #     sampler = run_func(nsteps=nsteps, pool=pool)
             else:
                 with Pool() as pool:
                     sampler = run_func(nsteps=nsteps, pool=pool)
@@ -355,6 +361,25 @@ def get_random_state_from_limits(limits):
     )
 
 
+def check_values(values, limits):
+
+    if limits.shape[0] == len(values):
+        conditions = np.zeros(
+            shape=limits.shape[0],
+            dtype=bool
+        )
+
+        for i, value in enumerate(values):
+            if limits[i, 0] < value < limits[i, 1]:
+                conditions[i] = True
+
+        if np.all(conditions):
+            print("OK")
+        else:
+            raise ValueError("...")
+    else:
+        raise ValueError("...")
+
 # def get_random_state_from_limits(limits, types=None):
 #
 #     # np.random.seed(
@@ -385,6 +410,9 @@ def get_random_state_from_limits(limits):
 #     # return np.array(
 #     #     limits[:, 0] + (limits[:, 1] - limits[:, 0]) * np.random.rand(limits.shape[0])
 #     # )
+
+
+
 
 if __name__ == "__main__":
     os.system("rm backend.h5")
@@ -458,12 +486,12 @@ if __name__ == "__main__":
         helper=helper_obj,
         log_likelihood_func=log_likelihood_func,
         limits=limits,
-        p0=p0,
+        p0=theta,
         nwalkers=200,
         backend_filename="{}/{}".format(
             backend_directory, backend_filename
         ),
-        parallization="MPI"
+        parallization=False
     )
 
     # NOTE:
@@ -479,7 +507,13 @@ if __name__ == "__main__":
         flat=False
     )
 
-    emcee_plot_utils.plot_chain(chain=chain, ncols=2, figsize=(20, 6), truths=theta)
+    if not cosma_utils.running_on_cosma():
+        emcee_plot_utils.plot_chain(
+            chain=chain,
+            ncols=2,
+            figsize=(20, 6),
+            truths=theta
+        )
 
 
 

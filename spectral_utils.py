@@ -119,6 +119,9 @@ def moment_0(cube, velocities, axis=0):
     return integral
 
 
+
+
+
 def moment_1(cube, velocities, axis=0):
 
     _moment_0 = moment_0(
@@ -145,9 +148,53 @@ def moment_1(cube, velocities, axis=0):
     return _moment_1
 
 
+
+
+def compute_moment_0(ndarray, velocities, axis=0):
+
+    if ndarray.shape[0] != len(velocities):
+        raise ValueError
+
+    # NOTE: exclude pixels
+    # NOTE: exclude channels
+
+    integral = np.trapz(
+        y=ndarray,
+        x=velocities,
+        axis=axis
+    )
+
+    return integral
+
+
+def compute_moment_1(ndarray, velocities, axis=0):
+
+    moment_0 = compute_moment_0(
+        ndarray=ndarray,
+        velocities=velocities,
+        axis=axis
+    )
+
+    if axis is None:
+        raise ValueError
+    elif axis == 0:
+        y = np.multiply(
+            ndarray,
+            velocities.reshape(
+                [velocities.size,] + list(np.ones(shape=len(ndarray.shape[1:]), dtype=int))
+            )
+        )
+    else:
+        raise ValueError("...")
+
+    integral = np.trapz(
+        y=y, x=velocities, axis=axis
+    )
+
+    return integral / moment_0
+
 if __name__ == "__main__":
 
-    
 
 
 

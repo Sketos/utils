@@ -1,11 +1,8 @@
-# NOTE: ...
-
 import os
 import numpy as np
 
+
 # NOTE: filter can be turner into a class and also filtering string can be turned into a class
-
-
 def filter_input_list_of_strings_after_split_with_string(input_list_of_strings, split_character, string):
     """Short summary.
 
@@ -102,6 +99,8 @@ def filter_input_list_of_strings_after_split_with_list_of_string_and_ending_stri
     return filter_input_list_of_strings_after_split_with_ending_string(
         input_list_of_strings=input_list_of_strings_filtered, split_character=split_character, ending_string=ending_string
     )
+
+
 
 
 # ----------------------- #

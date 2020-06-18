@@ -1,19 +1,35 @@
 
 
-
-def func(string_i, string_j, string):
-
-    return string_i + string + string_j
-
-
 def remove_substring_from_end_of_string(string, substring):
 
     if substring and string.endswith(substring):
         return string[:-len(substring)]
     else:
-        raise ValueError
+        raise ValueError(
+            "{} does not end with {}".format(string, substring)
+        )
+
+
+def remove_substring_from_start_of_string(string, substring):
+
+    if substring and string.startswith(substring):
+        return string[len(substring):]
+    else:
+        raise ValueError(
+            "{} does not start with {}".format(string, substring)
+        )
 
 
 if __name__ == "__main__":
 
-    print(func(string_i="a", string_j="b", string="__with__"))
+    string = "hello"
+    substring = "he"
+    string_after = remove_substring_from_start_of_string(
+        string=string, substring=substring
+    )
+    print(string, string_after)
+
+    string_after = remove_substring_from_end_of_string(
+        string=string, substring="lo"
+    )
+    print(string, string_after)

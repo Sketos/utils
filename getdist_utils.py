@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from getdist import mcsamples, plots
 import corner as corner
 
-import matplotlib
-matplotlib.use('QT5Agg')
+# import matplotlib
+# matplotlib.use('QT5Agg')
 
 import directory_utils as directory_utils
 
@@ -112,15 +112,18 @@ def triangle_plot(directory, suffix="", width_inch=16):
         suffix=suffix
     )
 
-
-    plots.get_single_plotter(width_inch=width_inch).triangle_plot(
+    plotter = plots.get_subplot_plotter(
+        width_inch=width_inch
+    )
+    plotter.triangle_plot(
         samples,
         params=[
             name for name in samples.paramNames.names
         ],
         filled=True
     )
-    plt.show()
+
+    return plotter
 
 
 def map_paramnames_to_labels(paramnames):
@@ -145,6 +148,7 @@ def map_paramnames_to_labels(paramnames):
         labels.append(mappings[paramnames[i].name])
 
     return labels
+
 
 def plot_chains_from_samples(list_of_samples, discard=0, parameter_indexes_arrays=None, parameter_labels=None, ncols=5, figsize=None):
 
@@ -274,20 +278,20 @@ if __name__ == "__main__":
     # ]
     legend_labels = ['Continuum; spw = 2, 3', r'$C_{II}$; spw = 0, 1']
 
-    optimizer_directories = [
-        '/Users/ccbh87/Desktop/COSMA/cosma7/data/dp004/dc-amvr1/workspace/output/HATLAS_J091043-000322/2015.1.01362.S/width_128/contsub/spws_0_1/pipeline__lens_sie_and_shear__source_sersic/general/source__sersic__with_shear/pipeline__lens_sie_and_shear__source_inversion/general/source__pix_voro_mag__reg_const__with_shear/phase_2__lens_sie_and_shear__source_inversion_magnification/phase_tag__rs_shape_200x200__rs_pix_0.05x0.05__sub_1/optimizer_backup/',
-        '/Users/ccbh87/Desktop/COSMA/cosma7/data/dp004/dc-amvr1/workspace/output/HATLAS_J091043-000322/2015.1.01362.S/width_128/spws_2_3/pipeline__lens_sie_and_shear__source_sersic/general/source__sersic__with_shear/pipeline__lens_sie_and_shear__source_inversion/general/source__pix_voro_mag__reg_const__with_shear/phase_2__lens_sie_and_shear__source_inversion_magnification/phase_tag__rs_shape_200x200__rs_pix_0.05x0.05__sub_1/optimizer_backup/'
-    ]
-    legend_labels = [r'$C_{II}$; spw = 0, 1', 'Continuum; spw = 2, 3']
+    # optimizer_directories = [
+    #     '/Users/ccbh87/Desktop/COSMA/cosma7/data/dp004/dc-amvr1/workspace/output/HATLAS_J091043-000322/2015.1.01362.S/width_128/contsub/spws_0_1/pipeline__lens_sie_and_shear__source_sersic/general/source__sersic__with_shear/pipeline__lens_sie_and_shear__source_inversion/general/source__pix_voro_mag__reg_const__with_shear/phase_2__lens_sie_and_shear__source_inversion_magnification/phase_tag__rs_shape_200x200__rs_pix_0.05x0.05__sub_1/optimizer_backup/',
+    #     '/Users/ccbh87/Desktop/COSMA/cosma7/data/dp004/dc-amvr1/workspace/output/HATLAS_J091043-000322/2015.1.01362.S/width_128/spws_2_3/pipeline__lens_sie_and_shear__source_sersic/general/source__sersic__with_shear/pipeline__lens_sie_and_shear__source_inversion/general/source__pix_voro_mag__reg_const__with_shear/phase_2__lens_sie_and_shear__source_inversion_magnification/phase_tag__rs_shape_200x200__rs_pix_0.05x0.05__sub_1/optimizer_backup/'
+    # ]
+    # legend_labels = [r'$C_{II}$; spw = 0, 1', 'Continuum; spw = 2, 3']
 
-    optimizer_directories = [
-        '/Users/ccbh87/Desktop/COSMA/cosma7/data/dp004/dc-amvr1/workspace/output/HATLAS_J091043-000322/2015.1.01362.S/width_128/spws_0_1/pipeline__lens_sie_and_shear__source_x2_sersic/general/source__sersic__with_shear/phase_1__lens_sie_and_shear__source_sersic/phase_tag__rs_shape_200x200__rs_pix_0.05x0.05__sub_1/optimizer_backup/',
-        '/Users/ccbh87/Desktop/COSMA/cosma7/data/dp004/dc-amvr1/workspace/output/HATLAS_J091043-000322/2015.1.01362.S/width_128/spws_0_1/pipeline__lens_sie_and_shear__source_x2_sersic/general/source__sersic__with_shear/phase_2__lens_sie_and_shear__source_x2_sersic/phase_tag__rs_shape_200x200__rs_pix_0.05x0.05__sub_1/optimizer_backup/'
-    ]
-    legend_labels = ['Continuum + $C_{II}$ + x1 sersic; spw = 0, 1', 'Continuum + $C_{II}$ + x2 sersic; spw = 0, 1']
+    # optimizer_directories = [
+    #     '/Users/ccbh87/Desktop/COSMA/cosma7/data/dp004/dc-amvr1/workspace/output/HATLAS_J091043-000322/2015.1.01362.S/width_128/spws_0_1/pipeline__lens_sie_and_shear__source_x2_sersic/general/source__sersic__with_shear/phase_1__lens_sie_and_shear__source_sersic/phase_tag__rs_shape_200x200__rs_pix_0.05x0.05__sub_1/optimizer_backup/',
+    #     '/Users/ccbh87/Desktop/COSMA/cosma7/data/dp004/dc-amvr1/workspace/output/HATLAS_J091043-000322/2015.1.01362.S/width_128/spws_0_1/pipeline__lens_sie_and_shear__source_x2_sersic/general/source__sersic__with_shear/phase_2__lens_sie_and_shear__source_x2_sersic/phase_tag__rs_shape_200x200__rs_pix_0.05x0.05__sub_1/optimizer_backup/'
+    # ]
+    # legend_labels = ['Continuum + $C_{II}$ + x1 sersic; spw = 0, 1', 'Continuum + $C_{II}$ + x2 sersic; spw = 0, 1']
 
 
-    
+
 
     # optimizer_directories = [
     #     '/Users/ccbh87/Desktop/COSMA/cosma7/data/dp004/dc-amvr1/workspace/output/HATLAS_J091043-000322/2015.1.01362.S/width_128/spws_0_1/pipeline__lens_sie_and_shear__source_x2_sersic/general/source__sersic__with_shear/phase_1__lens_sie_and_shear__source_sersic/phase_tag__rs_shape_200x200__rs_pix_0.05x0.05__sub_1/optimizer_backup/',
@@ -343,7 +347,8 @@ if __name__ == "__main__":
         )
     ]
 
-    plots.get_single_plotter(width_inch=16).triangle_plot(
+    plotter = plots.get_single_plotter(width_inch=16)
+    plotter.triangle_plot(
         list_of_samples,
         params=params,
         filled=True,

@@ -1,6 +1,13 @@
 import os
 
 
+def get_list_of_directory_trees_in_directory(directory):
+    return [
+        x[0]
+        for x in os.walk(directory)
+    ]
+
+
 def create_directory_tree_from_list_of_strings(list_of_strings, base_directory_of_directory_tree=''):
 
     directory_tree = base_directory_of_directory_tree
@@ -12,7 +19,7 @@ def create_directory_tree_from_list_of_strings(list_of_strings, base_directory_o
                 os.system(
                     "mkdir {}".format(directory_tree)
                 )
-                
+
 
 def directory_update_with_folder_names(directory, folder_names, create_directory=False):
 
@@ -73,7 +80,11 @@ def run_tests():
 if __name__ == "__main__":
     #run_tests()
 
-    move_directory_to_path(
-        directory="./wrappers/",
-        path="./dir_test/dir_level_0__1/dir_level_1__1/"
-    )
+    # move_directory_to_path(
+    #     directory="./wrappers/",
+    #     path="./dir_test/dir_level_0__1/dir_level_1__1/"
+    # )
+
+    for directory in get_list_of_directory_trees_in_directory(directory="/Users/ccbh87/"):
+        if directory.endswith("HATLAS_J091043-000322"):
+            print(directory)

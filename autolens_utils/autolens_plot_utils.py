@@ -3,15 +3,69 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
+import autolens as al
+
 # NOTE: ...
 sys.path.append(
-    os.environ["GitHub"] + "/utils"
+    "{}/utils".format(
+        os.environ["GitHub"]
+    )
 )
 import list_utils as list_utils
-import getdist_utils as getdist_utils
+#import getdist_utils as getdist_utils
 import directory_utils as directory_utils
+import voronoi_utils as voronoi_utils
 
 
+
+def dirty_image_from_visibilities_and_transformer(visibilities, transformer):
+
+    # NOTE: Depending the transformer invert the image.
+
+    dirty_image = transformer.image_from_visibilities(
+        visibilities=visibilities
+    )
+
+    if isinstance(transformer, al.TransformerFINUFFT):
+        dirty_image = dirty_image[::-1, :]
+    if isinstance(transformer, al.TransformerNUFFT):
+        pass
+
+    return dirty_image
+
+
+def plot_dirty_image_from_visibilities_and_transformer(visibilities, transformer):
+
+    dirty_image = dirty_image_from_visibilities_and_transformer(
+        visibilities=visibilities,
+        transformer=transformer
+    )
+
+    plt.figure()
+    plt.imshow(dirty_image)
+    plt.show()
+
+
+
+def dirty_cube_from_visibilities(visibilities, transformers, shape):
+    # NOTE: shape is 3d
+
+    if len(transformers) != visibilities.shape[0]:
+        raise ValueError("...")
+
+    dirty_cube = np.zeros(
+        shape=shape
+    )
+    for i in range(visibilities.shape[0]):
+        dirty_image = transformers[i].image_from_visibilities(
+            visibilities=visibilities[i]
+        )
+
+        if isinstance(transformers[i], al.TransformerFINUFFT):
+            dirty_image = dirty_image[::-1, :]
+        dirty_cube[i] = dirty_image
+
+    return dirty_cube
 
 
 def plot_visibilities(visibilities, spectral_mask=None):
@@ -56,6 +110,7 @@ def plot_visibilities(visibilities, spectral_mask=None):
         plt.show()
 
 
+# NOTE: WHAT AM I DOING HERE?
 def plot(inversion, tracer, grid, indexes):
 
     regions, vertices = voronoi_polygons(
@@ -118,25 +173,118 @@ def plot(inversion, tracer, grid, indexes):
     plt.show()
 
 
-def draw_voronoi_pixels(mapper, values, cmap, axes, alpha=1.0, fill_polygons=True, cb=None, min_value=None):
+# def draw_voronoi_pixels(mapper, values, cmap, axes=None, alpha=1.0, fill_polygons=True, cb=None, min_value=None):
+#
+#     regions, vertices = voronoi_utils.voronoi_polygons(
+#         voronoi=mapper.voronoi
+#     )
+#
+#     if axes is None:
+#         figure = plt.figure()
+#         axes = figure.axes
+#
+#     if values is not None:
+#         color_array = values[:] / np.max(values)
+#         cmap = plt.get_cmap(cmap)
+#         #cb.set_with_values(cmap=cmap, color_values=values)
+#     else:
+#         cmap = plt.get_cmap("Greys")
+#         color_array = np.zeros(shape=mapper.pixels)
+#
+#     for i, (region, index) in enumerate(zip(regions, range(mapper.pixels))):
+#         polygon = vertices[region]
+#         col = cmap(color_array[index])
+#         if min_value is not None:
+#             if values[i] > min_value:
+#                 if fill_polygons:
+#                     axes.fill(
+#                         *zip(*polygon),
+#                         edgecolor="black",
+#                         alpha=alpha,
+#                         facecolor=col,
+#                         lw=1
+#                     )
+#                 else:
+#                     axes.fill(
+#                         *zip(*polygon),
+#                         edgecolor="black",
+#                         alpha=alpha,
+#                         facecolor="None",
+#                         lw=1
+#                     )
+#         else:
+#             if fill_polygons:
+#                 axes.fill(
+#                     *zip(*polygon),
+#                     edgecolor="black",
+#                     alpha=alpha,
+#                     facecolor=col,
+#                     lw=1
+#                 )
+#             else:
+#                 axes.fill(
+#                     *zip(*polygon),
+#                     edgecolor="black",
+#                     alpha=alpha,
+#                     facecolor="None",
+#                     lw=1
+#                 )
+#
+#
+#     # plt.plot(
+#     #     mapper.voronoi._points[:, 0],
+#     #     mapper.voronoi._points[:, 1],
+#     #     linestyle="None",
+#     #     marker="o",color="black"
+#     # )
+#     #
+#     plt.show()
 
-    regions, vertices = voronoi_polygons(voronoi=mapper.voronoi)
+def draw_voronoi_polygons(mapper):
 
-    if values is not None:
-        color_array = values[:] / np.max(values)
-        cmap = plt.get_cmap(cmap)
-        #cb.set_with_values(cmap=cmap, color_values=values)
+    regions, vertices = voronoi_utils.voronoi_polygons(
+        voronoi=mapper.voronoi
+    )
+
+    for i, (region, index) in enumerate(
+        zip(regions, range(mapper.pixels))
+    ):
+        polygon = vertices[region]
+
+        plt.fill(
+            *zip(*polygon),
+            edgecolor="black",
+            facecolor="None",
+            lw=1
+        )
+
+def draw_voronoi_pixels(mapper, values, cmap="jet", alpha=1.0, fill_polygons=True, cb=None, min_value=None, value_max=None):
+
+    regions, vertices = voronoi_utils.voronoi_polygons(
+        voronoi=mapper.voronoi
+    )
+
+    if value_max is None:
+        colors = values[:] / np.max(values)
     else:
-        cmap = plt.get_cmap("Greys")
-        color_array = np.zeros(shape=mapper.pixels)
+        colors = values[:] / value_max
+
+
+    cmap = plt.get_cmap(cmap)
+        #cb.set_with_values(cmap=cmap, color_values=values)
+    # else:
+    #     cmap = plt.get_cmap("Greys")
+    #     color_array = np.zeros(shape=mapper.pixels)
 
     for i, (region, index) in enumerate(zip(regions, range(mapper.pixels))):
         polygon = vertices[region]
-        col = cmap(color_array[index])
+
+        col = cmap(colors[index])
+
         if min_value is not None:
             if values[i] > min_value:
                 if fill_polygons:
-                    axes.fill(
+                    plt.fill(
                         *zip(*polygon),
                         edgecolor="black",
                         alpha=alpha,
@@ -144,7 +292,7 @@ def draw_voronoi_pixels(mapper, values, cmap, axes, alpha=1.0, fill_polygons=Tru
                         lw=1
                     )
                 else:
-                    axes.fill(
+                    plt.fill(
                         *zip(*polygon),
                         edgecolor="black",
                         alpha=alpha,
@@ -153,7 +301,7 @@ def draw_voronoi_pixels(mapper, values, cmap, axes, alpha=1.0, fill_polygons=Tru
                     )
         else:
             if fill_polygons:
-                axes.fill(
+                plt.fill(
                     *zip(*polygon),
                     edgecolor="black",
                     alpha=alpha,
@@ -161,7 +309,7 @@ def draw_voronoi_pixels(mapper, values, cmap, axes, alpha=1.0, fill_polygons=Tru
                     lw=1
                 )
             else:
-                axes.fill(
+                plt.fill(
                     *zip(*polygon),
                     edgecolor="black",
                     alpha=alpha,
@@ -177,93 +325,285 @@ def draw_voronoi_pixels(mapper, values, cmap, axes, alpha=1.0, fill_polygons=Tru
     #     marker="o",color="black"
     # )
     #
-    # plt.show()
+    #plt.show()
 
 
-def voronoi_polygons(voronoi, radius=None):
-    """
-    Reconstruct infinite voronoi regions in a 2D diagram to finite
-    regions.
-    Parameters
-    ----------
-    voronoi : Voronoi
-        Input diagram
-    radius : float, optional
-        Distance to 'points at infinity'.
-    Returns
-    -------
-    regions : list of tuples
-        Indices of vertices in each revised Voronoi regions.
-    vertices : list of tuples
-        Coordinates for revised Voronoi vertices. Same as coordinates
-        of input vertices, with 'points at infinity' appended to the
-        end.
-    """
+def plot_reconstructions_from_inversions(
+    inversions,
+    nrows,
+    ncols,
+    figsize=(20, 10),
+    cmap="jet",
+    xlim=None,
+    ylim=None,
+    n_xticks=5,
+    n_yticks=5,
+    subplots_kwargs={
+        "wspace":0.0,
+        "hspace":0.0,
+        "left":0.05,
+        "right":0.95,
+        "bottom":0.05,
+        "top":0.95
+    },
+    cmap_type="same"
+):
 
-    if voronoi.points.shape[1] != 2:
-        raise ValueError("Requires 2D input")
+    figure = plt.figure(figsize=figsize)
 
-    new_regions = []
-    new_vertices = voronoi.vertices.tolist()
+    print("n = ", len(inversions))
+    if nrows * ncols < len(inversions):
+        raise ValueError("...")
 
-    center = voronoi.points.mean(axis=0)
-    if radius is None:
-        radius = voronoi.points.ptp().max() * 2
+    if xlim is not None:
+        xticks = np.linspace(xlim[0], xlim[1], n_xticks)
+    if ylim is not None:
+        yticks = np.linspace(ylim[0], ylim[1], n_yticks)
 
-    # Construct a map containing all ridges for a given point
-    all_ridges = {}
-    for (p1, p2), (v1, v2) in zip(voronoi.ridge_points, voronoi.ridge_vertices):
-        all_ridges.setdefault(p1, []).append((p2, v1, v2))
-        all_ridges.setdefault(p2, []).append((p1, v1, v2))
+    if cmap_type == "same":
+        value_max = np.max(
+            [inversion.reconstruction
+                for inversion in inversions
+            ]
+        )
+    elif cmap_type == "individual":
+        value_max = [np.max(inversion.reconstruction)
+            for inversion in inversions
+        ]
+    else:
+        raise ValueError("...")
 
-    # Reconstruct infinite regions
-    for p1, region in enumerate(voronoi.point_region):
-        vertices = voronoi.regions[region]
+    i = 0
+    j = 0
+    for n, inversion in enumerate(inversions):
+        print("n = ", n)
 
-        if all(v >= 0 for v in vertices):
-            # finite region
-            new_regions.append(vertices)
-            continue
+        plt.subplot(
+            nrows,
+            ncols,
+            n+1
+        )
 
-        # reconstruct a non-finite region
-        ridges = all_ridges[p1]
-        new_region = [v for v in vertices if v >= 0]
+        if cmap_type == "same":
+            draw_voronoi_pixels(
+                mapper=inversion.mapper,
+                values=inversion.reconstruction,
+                value_max=value_max
+            )
+        if cmap_type == "individual":
+            draw_voronoi_pixels(
+                mapper=inversion.mapper,
+                values=inversion.reconstruction,
+                value_max=value_max[n]
+            )
 
-        for p2, v1, v2 in ridges:
-            if v2 < 0:
-                v1, v2 = v2, v1
-            if v1 >= 0:
-                # finite ridge: already in the region
-                continue
+        if xlim is not None:
+            plt.xlim(xlim)
+        if ylim is not None:
+            plt.ylim(ylim)
 
-            # Compute the missing endpoint of an infinite ridge
+        if i == nrows - 1:
+            if xlim is not None:
+                plt.xticks(xticks[1:-1])
+            else:
+                plt.xticks([])
+        else:
+            plt.xticks([])
 
-            t = voronoi.points[p2] - voronoi.points[p1]  # tangent
-            t /= np.linalg.norm(t)
-            n = np.array([-t[1], t[0]])  # hyper
+        if j == 0:
+            if ylim is not None:
+                plt.yticks(yticks[1:-1])
+            else:
+                plt.yticks([])
+        else:
+            plt.yticks([])
 
-            midpoint = voronoi.points[[p1, p2]].mean(axis=0)
-            direction = np.sign(np.dot(midpoint - center, n)) * n
-            far_point = voronoi.vertices[v2] + direction * radius
+        j += 1
+        if j == ncols:
+            j = 0
+            i += 1
 
-            new_region.append(len(new_vertices))
-            new_vertices.append(far_point.tolist())
+    plt.subplots_adjust(
+        **subplots_kwargs
+    )
 
-        # sort region counterclockwise
-        vs = np.asarray([new_vertices[v] for v in new_region])
-        c = vs.mean(axis=0)
-        angles = np.arctan2(vs[:, 1] - c[1], vs[:, 0] - c[0])
-        new_region = np.array(new_region)[np.argsort(angles)]
-
-        # finish
-        new_regions.append(new_region.tolist())
-
-    return new_regions, np.asarray(new_vertices)
-
-
-
+    plt.show()
 
 
+def plot_fit_imaging(
+    fit,
+
+):
+    pass
+
+def plot_fit(
+    fit,
+    centre,
+    radius,
+    normalize_residuals=True,
+    show_contours=True,
+    xlim_image_plane=None,
+    ylim_image_plane=None,
+    xlim_source_plane=None,
+    ylim_source_plane=None
+):
+
+    def normalize(array, min_value=-1.0, max_value=1.0):
+        return min_value + (max_value - min_value) * (
+            (array - np.min(array)) / (np.max(array) - np.min(array))
+        )
+
+    extent = [
+        np.min(fit.grid[:, 1]),
+        np.max(fit.grid[:, 1]),
+        np.max(fit.grid[:, 0]),
+        np.min(fit.grid[:, 0])
+    ]
+
+    dirty_image = fit.masked_interferometer.transformer.image_from_visibilities(
+        visibilities=fit.visibilities
+    )
+    dirty_model_image = fit.masked_interferometer.transformer.image_from_visibilities(
+        visibilities=fit.model_visibilities
+    )
+
+    vmin = np.min(dirty_image)
+    vmax = np.max(dirty_image)
+
+    figure, axes = plt.subplots(
+        nrows=1,
+        ncols=4,
+        figsize=(20, 4)
+    )
+
+    axes[0].imshow(
+        dirty_image,
+        cmap="jet",
+        extent=extent,
+        vmin=vmin,
+        vmax=vmax,
+        aspect="auto"
+    )
+
+
+    # for mass_profile_centre in fit.tracer.mass_profile_centres:
+    #     if mass_profile_centre != (0.0, 0.0):
+    #
+    #         axes[0].plot([mass_profile_centre[1]], [mass_profile_centre[0]], linestyle="None", marker="o", markersize=10, color="w")
+
+    axes[1].imshow(
+        dirty_model_image,
+        cmap="jet",
+        extent=extent,
+        vmin=vmin,
+        vmax=vmax,
+        aspect="auto"
+    )
+
+    residuals = np.subtract(
+        dirty_image, dirty_model_image
+    )
+    if normalize_residuals:
+        axes[2].imshow(
+            normalize(residuals),
+            cmap="jet",
+            extent=extent,
+            vmin=-1.0,
+            vmax=1.0,
+            aspect="auto"
+        )
+    else:
+        axes[2].imshow(
+            residuals,
+            cmap="jet",
+            extent=extent,
+            vmin=vmin,
+            vmax=vmax,
+            aspect="auto"
+        )
+
+    if show_contours:
+        levels = [
+            vmax * percent / 100.0 for percent in np.arange(20, 100, 10)
+        ]
+
+        # axes[0].contour(
+        #     dirty_model_image[::-1, :],
+        #     levels=levels,
+        #     colors="black",
+        #     extent=extent,
+        #     alpha=0.5
+        # )
+        axes[2].contour(
+            dirty_model_image[::-1, :],
+            levels=levels,
+            colors="black",
+            extent=extent,
+            alpha=0.5
+        )
+
+
+    # for i in range(len(axes)):
+    #     axes[i].set_xticks([])
+    #     axes[i].set_yticks([])
+    #     if i in [0, 1, 2]:
+    #         axes[i].set_xlim(
+    #             np.add(centre[1], -radius),
+    #             np.add(centre[1], radius)
+    #         )
+    #         axes[i].set_ylim(
+    #             np.add(centre[0], radius),
+    #             np.add(centre[0], -radius)
+    #         )
+
+
+
+    if fit.inversion is None:
+
+        source_plane_image = fit.tracer.source_plane.profile_image_from_grid(
+            grid=fit.grid
+        )
+
+        axes[3].imshow(
+            source_plane_image.in_2d,
+            cmap="jet",
+            extent=extent,
+            aspect="auto"
+        )
+        #axes[3].set_xticks([])
+        #axes[3].set_yticks([])
+        #axes[3].set_xlim(xlim_image_plane)
+        #axes[3].set_ylim(ylim_image_plane)
+
+    else:
+        draw_voronoi_pixels(
+            mapper=fit.inversion.mapper,
+            values=fit.inversion.reconstruction
+        )
+
+    axes[3].plot(
+        fit.tracer.tangential_caustic[:, 1],
+        fit.tracer.tangential_caustic[:, 0],
+        linewidth=2,
+        color="w"
+    )
+
+    if xlim_image_plane is not None and ylim_image_plane is not None:
+        for i in [0, 1, 2]:
+            axes[i].set_xticks([])
+            axes[i].set_yticks([])
+            axes[i].set_xlim(xlim_image_plane)
+            axes[i].set_ylim(ylim_image_plane)
+
+    if xlim_source_plane is not None and ylim_source_plane is not None:
+        axes[3].set_xticks([])
+        axes[3].set_yticks([])
+        axes[3].set_xlim(xlim_source_plane)
+        axes[3].set_ylim(ylim_source_plane)
+
+    plt.subplots_adjust(wspace=0.0, hspace=0.0)
+
+    plt.show()
 
 
 
@@ -386,6 +726,7 @@ def paramNamesMapping():
     pass
 
     # TODO: Map the names of parameters that are saved by multinest to something prettier.
+
 
 if __name__ == "__main__":
     pass
