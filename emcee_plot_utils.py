@@ -417,24 +417,30 @@ if __name__ =="__main__":
     exit()
     """
 
-    plot_chain(
-        chain=chain,
-        log_prob=None,
-        ncols=4,
-        figsize=(20, 6),
-        walkers=None,
-        truths=truths,
-        title="N={} steps have been discarded".format(discard),
-        ylabels=["x", "y", "z", "flux", "R", "i", r"$\theta$", "$r_{t}$", "$V_{max}$", "$\sigma$"]
-    )
-    exit()
-
-    # fig = corner.corner(
-    #     xs=chain.reshape(-1, chain.shape[-1]),
-    #     bins=20,
+    # plot_chain(
+    #     chain=chain,
+    #     log_prob=None,
+    #     ncols=4,
+    #     figsize=(20, 6),
+    #     walkers=None,
+    #     truths=truths,
+    #     title="N={} steps have been discarded".format(discard),
+    #     ylabels=["x", "y", "z", "flux", "R", "i", r"$\theta$", "$r_{t}$", "$V_{max}$", "$\sigma$"]
     # )
-    # plt.show()
     # exit()
+
+    chain = np.delete(chain, 2, 2)
+
+    figure = corner.corner(
+        xs=chain.reshape(-1, chain.shape[-1]),
+        bins=20,
+        labels=["x", "y", "flux", r"$R^{1/2}$", "i", r"$\theta$", r"$r_{turn}$", r"$V_{max}$", r"$\sigma$"]
+    )
+
+    axes = np.array(figure.axes).reshape((chain.shape[-1], chain.shape[-1]))
+
+    plt.show()
+    exit()
 
     #exit()
 

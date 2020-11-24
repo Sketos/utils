@@ -11,7 +11,7 @@ def add_colorbar_to_axes(figure, im, axes):
     ).append_axes('right', size='5%', pad=0.05)
 
     figure.colorbar(
-        mappable=im,
+        im,
         cax=cax,
         orientation='vertical'
     )

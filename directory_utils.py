@@ -21,21 +21,56 @@ def create_directory_tree_from_list_of_strings(list_of_strings, base_directory_o
                 )
 
 
-def directory_update_with_folder_names(directory, folder_names, create_directory=False):
+# def directory_update_with_folder_names(directory, folder_names, create_directory=False):
+#
+#     directory = sanitize_directory(
+#         directory=directory
+#     )
+#
+#     for name in folder_names:
+#         directory += "/" + name
+#
+#         if create_directory:
+#             if not os.path.isdir(directory):
+#                 os.system(
+#                     "mkdir {}".format(directory)
+#                 )
+#
+#     return directory
 
-    directory = sanitize_directory(
-        directory=directory
-    )
+def update_directory_with_folder_names(directory, folder_names, make=False, raise_error=True):
 
-    for name in folder_names:
-        directory += "/" + name
-        if create_directory:
-            if not os.path.isdir(directory):
-                os.system(
-                    "mkdir {}".format(directory)
-                )
+    directory_updated = sanitize_directory(directory=directory)
 
-    return directory
+    if os.path.isdir(directory_updated):
+        for name in  folder_names:
+            directory_updated += "/{}".format(name)
+
+            if make:
+                if not os.path.isdir(directory_updated):
+                    os.system(
+                        "mkdir {}".format(directory_updated)
+                    )
+            else:
+                if not os.path.isdir(directory_updated):
+                    if raise_error:
+                        raise IOError(
+                            "The directory {} does not exist".format(directory_updated)
+                        )
+                    else:
+                        print(
+                            "The directory {} does not exist".format(directory_updated)
+                        )
+                else:
+                    pass
+
+    else:
+
+        raise IOError(
+            "The directory {} does not exist".format(directory)
+        )
+
+    return directory_updated
 
 
 def sanitize_directory(directory):

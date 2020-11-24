@@ -29,9 +29,31 @@ def dirty_image_from_visibilities_and_transformer(visibilities, transformer):
     if isinstance(transformer, al.TransformerFINUFFT):
         dirty_image = dirty_image[::-1, :]
     if isinstance(transformer, al.TransformerNUFFT):
-        pass
+        dirty_image = dirty_image[::-1, :]
 
     return dirty_image
+
+
+def dirty_image_from_interferometer_and_grid(interferometer, grid, transformer_class=al.TransformerFINUFFT):
+
+    transformer = transformer_class(
+        uv_wavelengths=interferometer.uv_wavelengths,
+        grid=grid.in_radians
+    )
+
+    return dirty_image_from_visibilities_and_transformer(
+        visibilities=interferometer.visibilities,
+        transformer=transformer
+    )
+
+
+def dirty_image_from_masked_interferometer(masked_interferometer):
+
+
+    return dirty_image_from_visibilities_and_transformer(
+        visibilities=masked_interferometer.visibilities,
+        transformer=masked_interferometer.transformer
+    )
 
 
 def plot_dirty_image_from_visibilities_and_transformer(visibilities, transformer):
@@ -42,12 +64,42 @@ def plot_dirty_image_from_visibilities_and_transformer(visibilities, transformer
     )
 
     plt.figure()
-    plt.imshow(dirty_image)
+    plt.imshow(
+        dirty_image,
+        cmap="jet"
+    )
+    plt.colorbar()
+    plt.xticks([])
+    plt.yticks([])
     plt.show()
 
 
+def dirty_cube_from_1(uv_wavelengths, visibilities, grid, transformer_class, invert=True):
 
-def dirty_cube_from_visibilities(visibilities, transformers, shape):
+    if len(uv_wavelengths.shape) == 3:
+        transformers = [
+            transformer_class(
+                uv_wavelengths=uv_wavelengths[i],
+                grid=grid.in_radians,
+            )
+            for i in range(uv_wavelengths.shape[0])
+        ]
+    else:
+        raise ValueError(
+            "The shape of the uv_wavelengths {} is not right.".format(uv_wavelengths.shape)
+        )
+
+    shape = (uv_wavelengths.shape[0], ) + grid.shape_2d
+
+    return dirty_cube_from_visibilities(
+        visibilities=visibilities,
+        transformers=transformers,
+        shape=shape,
+        invert=invert
+    )
+
+
+def dirty_cube_from_visibilities(visibilities, transformers, shape, invert=True):
     # NOTE: shape is 3d
 
     if len(transformers) != visibilities.shape[0]:
@@ -61,14 +113,16 @@ def dirty_cube_from_visibilities(visibilities, transformers, shape):
             visibilities=visibilities[i]
         )
 
-        if isinstance(transformers[i], al.TransformerFINUFFT):
-            dirty_image = dirty_image[::-1, :]
+        if invert:
+            if isinstance(transformers[i], (al.TransformerFINUFFT, al.TransformerNUFFT)):
+                dirty_image = dirty_image[::-1, :]
         dirty_cube[i] = dirty_image
 
     return dirty_cube
 
 
-def plot_visibilities(visibilities, spectral_mask=None):
+
+def plot_visibilities(visibilities, spectral_axis=False, spectral_mask=None, figure=None):
 
     #total_number_of_channels = visibilities.shape[0]
     if len(visibilities.shape) == 1:
@@ -80,7 +134,9 @@ def plot_visibilities(visibilities, spectral_mask=None):
         real_visibilities = visibilities[:, 0]
         imag_visibilities = visibilities[:, 1]
 
-        plt.figure()
+        if not figure:
+            figure = plt.figure()
+
         plt.plot(
             real_visibilities,
             imag_visibilities,
@@ -108,6 +164,9 @@ def plot_visibilities(visibilities, spectral_mask=None):
             )
 
         plt.show()
+
+
+# TODO: write a function that takes multiple visibility data and plots them with different colors.
 
 
 # NOTE: WHAT AM I DOING HERE?
@@ -257,6 +316,7 @@ def draw_voronoi_polygons(mapper):
             facecolor="None",
             lw=1
         )
+    plt.show()
 
 def draw_voronoi_pixels(mapper, values, cmap="jet", alpha=1.0, fill_polygons=True, cb=None, min_value=None, value_max=None):
 
@@ -438,46 +498,94 @@ def plot_fit_imaging(
 
 def plot_fit(
     fit,
-    centre,
-    radius,
+    grid=None,
+    centre=None,
+    radius=None,
     normalize_residuals=True,
     show_contours=True,
     xlim_image_plane=None,
     ylim_image_plane=None,
     xlim_source_plane=None,
-    ylim_source_plane=None
+    ylim_source_plane=None,
+    apply_mask=True,
+    save=False,
+    show=True
 ):
 
     def normalize(array, min_value=-1.0, max_value=1.0):
         return min_value + (max_value - min_value) * (
-            (array - np.min(array)) / (np.max(array) - np.min(array))
+            (array - np.nanmin(array)) / (np.nanmax(array) - np.nanmin(array))
         )
 
-    extent = [
-        np.min(fit.grid[:, 1]),
-        np.max(fit.grid[:, 1]),
-        np.max(fit.grid[:, 0]),
-        np.min(fit.grid[:, 0])
-    ]
+    # NOTE: The "grid" is required as an input itherwise the inversion visualization is bugged ...
+
+    # NOTE: Now the output images in the image-plane have the same orientation
+    # as in autolens.
+    # extent = [
+    #     np.min(fit.grid[:, 1]),
+    #     np.max(fit.grid[:, 1]),
+    #     np.max(fit.grid[:, 0]),
+    #     np.min(fit.grid[:, 0])
+    # ]
+    # extent = [
+    #     np.min(fit.grid[:, 1]),
+    #     np.max(fit.grid[:, 1]),
+    #     np.min(fit.grid[:, 0]),
+    #     np.max(fit.grid[:, 0])
+    # ]
+
+    # extent = [
+    #     np.min(fit.grid[:, 1]) - fit.grid.pixel_scale / 2.0,
+    #     np.max(fit.grid[:, 1]) + fit.grid.pixel_scale / 2.0,
+    #     np.max(fit.grid[:, 0]) + fit.grid.pixel_scale / 2.0,
+    #     np.min(fit.grid[:, 0]) - fit.grid.pixel_scale / 2.0
+    # ]
+
+    if grid is None:
+        grid = fit.grid
+
+    extent = grid.extent
+    extent[0] -= grid.pixel_scale / 2.0
+    extent[1] += grid.pixel_scale / 2.0
+    extent[2] -= grid.pixel_scale / 2.0
+    extent[3] += grid.pixel_scale / 2.0
+
+    real_space_mask = fit.masked_interferometer.real_space_mask[::-1, :]
 
     dirty_image = fit.masked_interferometer.transformer.image_from_visibilities(
         visibilities=fit.visibilities
     )
+    if apply_mask:
+        dirty_image[real_space_mask] = np.nan
     dirty_model_image = fit.masked_interferometer.transformer.image_from_visibilities(
         visibilities=fit.model_visibilities
     )
+    if apply_mask:
+        dirty_model_image[real_space_mask] = np.nan
 
-    vmin = np.min(dirty_image)
-    vmax = np.max(dirty_image)
+    # figure, axes = plt.subplots(nrows=1, ncols=3)
+    # axes[0].imshow(dirty_image)
+    #
+    # axes[1].imshow(real_space_mask)
+    # dirty_image[real_space_mask] = np.nan
+    # axes[2].imshow(dirty_image)
+    # plt.show()
+    # exit()
+
+
+
+    vmin = np.nanmin(dirty_image)
+    vmax = np.nanmax(dirty_image)
 
     figure, axes = plt.subplots(
         nrows=1,
-        ncols=4,
+        ncols=5,
         figsize=(20, 4)
     )
 
     axes[0].imshow(
         dirty_image,
+        origin="lower",
         cmap="jet",
         extent=extent,
         vmin=vmin,
@@ -493,6 +601,7 @@ def plot_fit(
 
     axes[1].imshow(
         dirty_model_image,
+        origin="lower",
         cmap="jet",
         extent=extent,
         vmin=vmin,
@@ -506,6 +615,7 @@ def plot_fit(
     if normalize_residuals:
         axes[2].imshow(
             normalize(residuals),
+            origin="lower",
             cmap="jet",
             extent=extent,
             vmin=-1.0,
@@ -515,6 +625,7 @@ def plot_fit(
     else:
         axes[2].imshow(
             residuals,
+            origin="lower",
             cmap="jet",
             extent=extent,
             vmin=vmin,
@@ -536,6 +647,7 @@ def plot_fit(
         # )
         axes[2].contour(
             dirty_model_image[::-1, :],
+            origin="lower",
             levels=levels,
             colors="black",
             extent=extent,
@@ -556,15 +668,41 @@ def plot_fit(
     #             np.add(centre[0], -radius)
     #         )
 
+    if fit.inversion is None:
 
+        if al.__version__ in ["0.45.0"]:
+            model_image = fit.tracer.profile_image_from_grid(
+                grid=grid
+            )
+        if al.__version__ in ["1.8.1"]:
+            model_image = fit.tracer.image_from_grid(
+                grid=grid
+            )
+
+    else:
+
+        model_image = fit.inversion.mapped_reconstructed_image
+
+    axes[3].imshow(
+        model_image.in_2d[::-1, :],
+        origin="lower",
+        cmap="jet",
+        extent=extent,
+        aspect="auto"
+    )
 
     if fit.inversion is None:
 
-        source_plane_image = fit.tracer.source_plane.profile_image_from_grid(
-            grid=fit.grid
-        )
+        if al.__version__ in ["0.45.0"]:
+            source_plane_image = fit.tracer.source_plane.profile_image_from_grid(
+                grid=grid
+            )
+        if al.__version__ in ["1.8.1"]:
+            source_plane_image = fit.tracer.source_plane.image_from_grid(
+                grid=grid
+            )
 
-        axes[3].imshow(
+        axes[4].imshow(
             source_plane_image.in_2d,
             cmap="jet",
             extent=extent,
@@ -581,29 +719,65 @@ def plot_fit(
             values=fit.inversion.reconstruction
         )
 
-    axes[3].plot(
+    # # NOTE: ...
+    # x_tangential_critical = fit.tracer.tangential_critical_curve[:, 0]
+    # y_tangential_critical = fit.tracer.tangential_critical_curve[:, 1]
+    # for i in [0, 1, 2, 3]:
+    #     axes[i].plot(
+    #         -x_tangential_critical,
+    #         y_tangential_critical,
+    #         linewidth=2,
+    #         color="w"
+    #     )
+    x_tangential_critical = fit.tracer.tangential_critical_curve[:, 1]
+    y_tangential_critical = fit.tracer.tangential_critical_curve[:, 0]
+    for i in [0, 1, 2, 3]:
+        axes[i].plot(
+            x_tangential_critical,
+            y_tangential_critical,
+            linewidth=2,
+            color="black"
+        )
+
+    axes[4].plot(
         fit.tracer.tangential_caustic[:, 1],
         fit.tracer.tangential_caustic[:, 0],
         linewidth=2,
         color="w"
     )
 
+    for i in [1, 2, 3]:
+        axes[i].set_xticks([])
+        axes[i].set_yticks([])
+
+
     if xlim_image_plane is not None and ylim_image_plane is not None:
-        for i in [0, 1, 2]:
+        for i in [0, 1, 2, 3]:
             axes[i].set_xticks([])
             axes[i].set_yticks([])
             axes[i].set_xlim(xlim_image_plane)
             axes[i].set_ylim(ylim_image_plane)
+    # else:
+    #     for i in [0, 1, 2, 3]:
+    #         if i != 0:
+    #             axes[i].set_xticks([])
+    #             axes[i].set_yticks([])
+    #         axes[i].set_xlim((extent[0], extent[1]))
+    #         axes[i].set_ylim((extent[3], extent[2]))
 
     if xlim_source_plane is not None and ylim_source_plane is not None:
-        axes[3].set_xticks([])
-        axes[3].set_yticks([])
-        axes[3].set_xlim(xlim_source_plane)
-        axes[3].set_ylim(ylim_source_plane)
+        axes[4].yaxis.tick_right()
+        #axes[3].set_xticks([])
+        #axes[3].set_yticks([])
+        axes[4].set_xlim(xlim_source_plane)
+        axes[4].set_ylim(ylim_source_plane)
 
-    plt.subplots_adjust(wspace=0.0, hspace=0.0)
+    plt.subplots_adjust(wspace=0.0, hspace=0.0, left=0.05, right=0.95)
 
-    plt.show()
+    if save:
+        plt.savefig("fit_subplots.png", overwrite=True)
+    if show:
+        plt.show()
 
 
 

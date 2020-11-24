@@ -1,4 +1,16 @@
+import copy
 
+
+def remove_char_from_string(string, char):
+
+    return string.replace(char, '')
+
+def remove_list_of_chars_from_string(string, chars):
+
+    for char in chars:
+        string = remove_char_from_string(string=string, char=char)
+
+    return string
 
 def remove_substring_from_end_of_string(string, substring):
 
@@ -20,16 +32,44 @@ def remove_substring_from_start_of_string(string, substring):
         )
 
 
+def remove_substrings_from_start_and_end_of_string(string, substrings):
+
+    # NOTE: substrings must be a list
+
+    if len(substrings) == 2:
+
+        return remove_substring_from_end_of_string(
+            string=remove_substring_from_start_of_string(
+                string=string,
+                substring=substrings[0]
+            ),
+            substring=substrings[1]
+        )
+
+    else:
+        raise ValueError("...")
+
+    return string_temp
+
+
+
 if __name__ == "__main__":
 
-    string = "hello"
-    substring = "he"
-    string_after = remove_substring_from_start_of_string(
-        string=string, substring=substring
-    )
-    print(string, string_after)
+    # string = "hello"
+    # substring = "he"
+    # string_after = remove_substring_from_start_of_string(
+    #     string=string, substring=substring
+    # )
+    # print(string, string_after)
+    #
+    # string_after = remove_substring_from_end_of_string(
+    #     string=string, substring="lo"
+    # )
+    # print(string, string_after)
 
-    string_after = remove_substring_from_end_of_string(
-        string=string, substring="lo"
+    # print(
+    #     remove_char_from_string(string="hello", char=")")
+    # )
+    print(
+        remove_list_of_chars_from_string(string="hello", chars=["h", "e"])
     )
-    print(string, string_after)

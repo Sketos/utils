@@ -28,6 +28,7 @@ def concatenate_list_of_numpy_arrays(list_of_arrays, axis=0):
             concatenated_array.shape
         )
     )
+    
     return concatenated_array
 
 

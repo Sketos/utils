@@ -1,5 +1,9 @@
 import copy
+
 import numpy as np
+
+import matplotlib.pyplot as plt
+
 from astropy import units as au
 from astropy.io import fits
 
@@ -100,7 +104,7 @@ def extract_key_from_header(header, key):
         )
 
 
-def extract_list_of_keys_from_header(header, list_of_keys):
+def extract_list_of_keys_from_header(header, list_of_keys, error=False):
     """Short summary.
 
     Parameters
@@ -125,9 +129,14 @@ def extract_list_of_keys_from_header(header, list_of_keys):
         if key in header:
             header_keys[key] = header[key]
         else:
-            raise ValueError(
-                "{} was not found in the header".format(key)
-            )
+            if error:
+                raise ValueError(
+                    "{} was not found in the header".format(key)
+                )
+            else:
+                print(
+                    "WARNING: {} was not found in the header".format(key)
+                )
 
     return header_keys
 
@@ -145,6 +154,60 @@ def updated_header_with_header_keys(header, header_keys, replace=False):
             header[key] = header_keys[key]
 
     return header
+
+
+def sanitize_fits(filename, output_filename):
+
+    data = fits.getdata(
+        filename=filename
+    )
+
+    list_of_keys=[
+        "BMAJ",
+        "BMIN",
+        "BPA",
+        "PC1_1",
+        "PC2_1",
+        "PC1_2",
+        "PC2_2",
+        "CTYPE1",
+        "CRVAL1",
+        "CDELT1",
+        "CRPIX1",
+        "CUNIT1",
+        "CTYPE2",
+        "CRVAL2",
+        "CDELT2",
+        "CRPIX2",
+        "CUNIT2",
+        "CTYPE3",
+        "CRVAL3",
+        "CDELT3",
+        "CRPIX3",
+        "CUNIT3",
+    ]
+
+    header_keys = extract_list_of_keys_from_header(
+        header=fits.getheader(
+            filename=filename
+        ),
+        list_of_keys=list_of_keys
+    )
+
+    header = updated_header_with_header_keys(
+        header=fits.Header(),
+        header_keys=header_keys,
+        replace=False
+    )
+
+    fits.writeto(
+        filename=output_filename,
+        data=np.squeeze(
+            a=data
+        ),
+        header=header,
+        overwrite=True
+    )
 
 
 # def save_cube_to_fits(
@@ -262,4 +325,102 @@ def run_tests():
 
 
 if __name__ == "__main__":
-    run_tests()
+    pass
+    #run_tests()
+
+    # filename = "/Users/ccbh87/Desktop/ALMA_data/2016.1.01374.S/science_goal.uid___A001_X894_X2b/group.uid___A001_X894_X2c/member.uid___A001_X894_X2d/product/member.uid___A001_X894_X2d.SPT-0418_sci.spw21_23_25_27.cont.I.pbcor.fits"
+    #
+    # pixel_scale = get_pixel_scale_from_fits(
+    #     filename=filename
+    # )
+    # print("pixel_scale = {}".format(pixel_scale))
+    # exit()
+
+    # NOTE: Turn this into a function
+
+    #filename = "/Volumes/Elements_v1/2016.1.00450.S/science_goal.uid___A001_X87d_X527/group.uid___A001_X87d_X528/member.uid___A001_X87d_X529/imaging/J142413.9+022304/cube/width_1/J142413.9+022304_spw_0.clean.cube.image.pbcor.fits"
+    #filename = "/Volumes/Elements_v1/2016.1.00450.S/science_goal.uid___A001_X87d_X527/group.uid___A001_X87d_X528/member.uid___A001_X87d_X529/imaging/J142413.9+022304/cube/width_1/J142413.9+022304_spw_1.clean.cube.image.pbcor.fits"
+
+    #filename = "/Users/ccbh87/Desktop/ALMA_data/2016.1.00564.S/imaging/ALESS009.1/cube/width_50_km_per_s/ALESS009.1_spws_3_and_1.clean.cube.image.pbcor.fits"
+    #filename = "/Users/ccbh87/Desktop/ALMA_data/2016.1.00564.S/imaging/ALESS009.1/cube/width_100_km_per_s/ALESS009.1_spws_3_and_1.clean.cube.image.pbcor.fits"
+    filename = "/Users/ccbh87/Desktop/ALMA_data/2016.1.00564.S/imaging/ALESS009.1/cube/width_125_km_per_s/ALESS009.1_spws_3_and_1.clean.cube.image.pbcor.fits"
+
+    list_of_keys = extract_list_of_keys_from_header(
+        header=fits.getheader(filename=filename),
+        list_of_keys=[
+            "NAXIS3",
+            "CRVAL3",
+            "CDELT3",
+        ]
+    )
+
+    NAXIS3 = list_of_keys["NAXIS3"]
+    CRVAL3 = list_of_keys["CRVAL3"]
+    CDELT3 = list_of_keys["CDELT3"]
+
+    # frequencies = [CRVAL3 + i * CDELT3
+    #     for i in range(list_of_keys["NAXIS3"])
+    # ]
+    #
+    # print(frequencies)
+
+    min_frequency = CRVAL3
+    max_frequency = CRVAL3 + NAXIS3 * CDELT3
+
+    f = min_frequency
+    for i in range(NAXIS3):
+        print(i, f * au.Hz.to(au.GHz))
+
+        f += CDELT3
+
+    print(
+        "min", min_frequency * au.Hz.to(au.GHz),
+        "max", max_frequency * au.Hz.to(au.GHz),
+    )
+
+
+    """# NOTE: Make this a function
+    def add_images(filenames, ):
+        pass
+
+        cubes = []
+        for name in filenames:
+            hdu = fits.open(name=name)
+
+            print(hdu[0].header["CRVAL1"], hdu[0].header["CRVAL2"])
+
+            print(hdu[0].data.shape)
+
+            cubes.append(hdu[0].data)
+
+        cube = np.add(cubes[0], cubes[1])
+
+        #print(cube.shape)
+        # 1) load the image
+        # 2) align the images
+        # 3) add the images
+
+        for i in range(cube.shape[1]):
+
+            figure, axes = plt.subplots(nrows=1, ncols=3, figsize=(16, 8))
+
+            vmin = np.nanmin(cube[0, i, :, :])
+            vmax = np.nanmax(cube[0, i, :, :])
+
+            axes[0].imshow(cube[0, i, :, :], origin="lower", vmin=vmin, vmax=vmax)
+            axes[1].imshow(cubes[0][0, i, :, :], origin="lower", vmin=vmin, vmax=vmax)
+            axes[2].imshow(cubes[1][0, i, :, :], origin="lower", vmin=vmin, vmax=vmax)
+            plt.show()
+
+
+
+
+
+    add_images(
+        filenames=[
+            "/Volumes/Elements_v1/SDP81/SDP81_Band4_CalibratedData/SDP.81/CO54/uvcontsub/SDP.81_500klambda_niter_5000.clean.cube.image.pbcor.fits",
+            "/Volumes/Elements_v1/SDP81/SDP81_Band6_CalibratedData/SDP.81/CO87/uvcontsub/SDP.81_500klambda_niter_5000.clean.cube.image.pbcor.fits"
+        ]
+    )
+    exit()
+    """

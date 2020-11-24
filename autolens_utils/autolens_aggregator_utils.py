@@ -2,6 +2,7 @@ import os
 import sys
 
 import autofit as af
+import autolens as al
 
 sys.path.append(
     "{}/utils".format(os.environ["GitHub"])
@@ -30,8 +31,6 @@ def aggregator_wrapper(output_directory, phase_folders, pipeline, phase, ending_
         ending_string=ending_string
     )
 
-
-
     if len(list_of_directory_trees_after_filtering) == 1:
         agg = af.Aggregator(
             directory=string_utils.remove_substring_from_end_of_string(
@@ -47,17 +46,35 @@ def aggregator_wrapper(output_directory, phase_folders, pipeline, phase, ending_
     if return_agg:
         return agg
 
-    
 
-    # NOTE:
+
+    # # NOTE:
+    # galaxies = [out.most_likely_instance for out in agg.values("output")]
+    #
+    # if len(galaxies) == 1:
+    #     galaxies = galaxies[0]
+    # else:
+    #     raise ValueError
+    #
+    # return galaxies
+
+
+def tracer_from_agg(agg):
+
     galaxies = [out.most_likely_instance for out in agg.values("output")]
 
-    if len(galaxies) == 1:
-        galaxies = galaxies[0]
-    else:
-        raise ValueError
+def tracer_from_phase(phase_directory):
 
-    return galaxies
+    agg = af.Aggregator(directory=phase_directory, )
+
+    ml_instance = [out.most_likely_instance
+        for out in agg.values("output")
+    ]
+    ml_instance = ml_instance[0]
+
+    return al.Tracer.from_galaxies(
+        galaxies=ml_instance.galaxies
+    )
 
 
 if __name__ == "__main__":

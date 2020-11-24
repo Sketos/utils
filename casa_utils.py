@@ -1,15 +1,25 @@
 import os
+
 import numpy as np
+import matplotlib.pyplot as plt
+
 from astropy import constants, units as au
 from astropy.io import fits
+
+import directory_utils as directory_utils
 
 
 
 # NOTE: THIS ONLY WORKS WHEN THE NUMBER OF CHANNELS IS EVEN NUMBER.
-def generate_frequencies(central_frequency, n_channels, bandwidth):
+def generate_frequencies(central_frequency, n_channels, bandwidth=2.0 * au.GHz):
 
-    df = (bandwidth / n_channels).to(au.Hz).value
+    if n_channels == 1:
+        raise ValueError(
+            "This has not been implemented ..."
+        )
 
+    df = bandwidth.to(au.Hz).value / n_channels
+    #print(df);exit()
     frequencies = np.arange(
         central_frequency.to(au.Hz).value - int(n_channels / 2.0) * df,
         central_frequency.to(au.Hz).value + int(n_channels / 2.0) * df,
@@ -57,9 +67,41 @@ def convert_uv_coords_from_meters_to_wavelengths(uv, frequencies):
     )
 # --------------------------------------------------------------------------- #
 
-def load_configuration_file(filename):
+# def load_configuration_file(filename):
+#
+#     if filename.endswith(".cfg"):
+#
+#         if os.path.isfile(filename):
+#             x, y, z = np.loadtxt(
+#                 filename,
+#                 usecols=(0, 1, 2),
+#                 unpack=True
+#             )
+#         else:
+#             raise IOError(
+#                 "The file {} does not exist".format(filename)
+#             )
+#
+#     else:
+#         raise ValueError(
+#             "The input filename is not a .cfg file"
+#         )
+#
+#     return np.array([x, y, z])
 
-    if filename.endswith(".cfg"):
+
+def load_antenna_positions(antenna_configuration, directory="."):
+
+    directory = directory_utils.sanitize_directory(
+        directory=directory
+    )
+
+    if os.path.isdir(directory):
+
+        filename = "{}/{}".format(
+            directory,
+            "alma.cycle{}.cfg".format(antenna_configuration)
+        )
 
         if os.path.isfile(filename):
             x, y, z = np.loadtxt(
@@ -73,13 +115,12 @@ def load_configuration_file(filename):
             )
 
     else:
-        raise ValueError(
-            "The input filename is not a .cfg file"
+
+        raise IOError(
+            "The directory {} does not exist".format(directory)
         )
 
     return np.array([x, y, z])
-
-
 
 
 
@@ -182,6 +223,11 @@ def uvcontsub(visibilities, antennas, baseline_lengths):
                 visibilities_uvcontsub[:, idx, 1] = y_imag - np.array([poly1d_y_imag(x), ] * np.sum(idx)).T
 
 
+# EXAMPLES
+
+def listobs(vis):
+    listobs(vis="uid___A002_Xc6c0d5_X1b9.ms.split.cal", listfile="uid___A002_Xc6c0d5_X1b9.ms.split.cal.listobs")
+
 if __name__ == "__main__":
 
     directory = "/Users/ccbh87/Desktop/GitHub/simobserve"
@@ -193,6 +239,18 @@ if __name__ == "__main__":
     x, y, z = load_configuration_file(
         filename="{}/{}".format(directory, filename)
     )
+    figure, axes = plt.subplots()
+    axes.plot(x, y, linestyle="None", marker="o", color="black")
+    axes.plot(x[0], y[0], linestyle="None", marker="o", color="r")
+
+    dx = 5
+    dy = 5
+    for i, (x_i, y_i) in enumerate(zip(x, y)):
+        axes.annotate(i, (x_i + dx, y_i + dy), fontsize=15)
+    plt.xlabel("x (m)", fontsize=15)
+    plt.ylabel("y (m)", fontsize=15)
+    plt.show()
+    exit()
 
     #R = np.zeros(shape=coords.shape[-1])
     R = x**2.0 + y**2.0 + z**2.0

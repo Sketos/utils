@@ -1,3 +1,5 @@
+import numpy as np
+
 from astropy import units
 from astropy import constants
 
@@ -21,6 +23,30 @@ def compute_uv_wavelengths(u_meters, v_meters, frequency):
     v_wavelengths = v_meters * frequency * units.GHz.to(units.Hz) / constants.c.to(units.m/units.s).value
 
     return u_wavelengths, v_wavelengths
+
+
+def rms(visibilities):
+
+    if len(visibilities.shape) == 3:
+        N = visibilities.shape[0]
+    else:
+        raise ValueError("Not implemented yet...")
+
+    rms_real = np.zeros(shape=(N, ))
+    rms_imag = np.zeros(shape=(N, ))
+    for i in range(N):
+        rms_real[i] = np.sqrt(
+            np.mean(
+                np.square(visibilities[i, :, 0])
+            )
+        )
+        rms_imag[i] = np.sqrt(
+            np.mean(
+                np.square(visibilities[i, :, 1])
+            )
+        )
+
+    return rms_real, rms_imag
 
 
 if __name__ == "__main__":

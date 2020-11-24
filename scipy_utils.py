@@ -1,4 +1,10 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
 from scipy.spatial import distance
+
+from scipy import stats
+
 
 def minimum_distance(points, metric='euclidean'):
 
@@ -33,3 +39,19 @@ def minimum_distance(points, metric='euclidean'):
 #                 idx_j = j
 #
 #     return distance
+
+
+def lognormal(x, mean, sigma):
+
+    return 1.0 / (x * sigma * np.sqrt(2.0 * np.pi)) * np.exp(-(np.log(x) - mean)**2.0 / (2.0 * sigma**2.0))
+
+if __name__ == "__main__":
+
+    xmin = 10**-2.0
+    xmax = 10**+2.0
+    x = np.logspace(np.log10(xmin), np.log10(xmax), 100)
+
+    plt.plot(x, stats.lognorm.pdf(x, 1.0))
+    plt.plot(x, lognormal(x, np.log(0.1), 1.0))
+    plt.xscale("log")
+    plt.show()

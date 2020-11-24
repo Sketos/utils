@@ -1,14 +1,23 @@
-import copy as copy
-import numpy as np
-import matplotlib.pyplot as plt
-from getdist import mcsamples, plots
+import os
+import sys
+import copy
 import corner as corner
 
-# import matplotlib
-# matplotlib.use('QT5Agg')
+import numpy as np
 
+import matplotlib.pyplot as plt
+
+import matplotlib
+matplotlib.use('QT5Agg')
+
+from getdist import mcsamples, \
+                    MCSamples, \
+                    plots, \
+                    paramnames
+
+# NOTE:
 import directory_utils as directory_utils
-
+import string_utils as string_utils
 
 
 def get_contours_from_samples(samples, parameter_1="galaxies_subhalo_mass_centre_1", parameter_2="galaxies_subhalo_mass_centre_0"):
@@ -103,6 +112,19 @@ def get_list_of_samples_from_multinest_outputs_in_list_of_directories(list_of_di
 
 def sanitize_paramNames():
     pass
+
+
+def get_list_of_samples_from_optimizer_directories(list_of_optimizer_directories):
+
+    list_of_samples = []
+    for optimizer_directory in list_of_optimizer_directories:
+        obj = mcsamples.loadMCSamples(
+            "{}/multinest".format(optimizer_directory)
+        )
+
+        list_of_samples.append(obj.samples)
+
+    return list_of_samples
 
 
 def triangle_plot(directory, suffix="", width_inch=16):
@@ -219,6 +241,244 @@ def plot_chains_from_samples(list_of_samples, discard=0, parameter_indexes_array
     plt.show()
 
 
+
+
+
+
+
+
+
+def triangle_plots_from_list_of_samples(list_of_samples, legend_labels=None, labels=None):
+
+    # NOTE: labels are temporary given as input
+
+
+    list_of_samples_for_plotting = []
+    for samples in list_of_samples:
+
+        samples_trimmed = samples[:, 7:]
+
+
+        # #NOTE: THIS IS A HACK because I allowed the PA to go between (0, 360)!
+        # if np.percentile(samples_trimmed[:, 2], q=50) > 180:
+        #     samples_trimmed[:, 2] -= 180.0
+        # if np.percentile(samples_trimmed[:, 6], q=50) > 180:
+        #     samples_trimmed[:, 6] -= 180.0
+
+
+        list_of_samples_for_plotting.append(
+            MCSamples(
+                samples=samples_trimmed,
+                names=["x%s"%i for i in range(samples_trimmed.shape[-1])],
+                labels=["x_%s"%i for i in range(samples_trimmed.shape[-1])]
+                    if labels is None else labels,
+            )
+        )
+
+    plotter = plots.get_subplot_plotter(width_inch=12)
+
+    plotter.triangle_plot(
+        list_of_samples_for_plotting,
+        legend_labels=legend_labels,
+        filled=True,
+        legend_loc='upper right',
+        legend_kwargs={"fontsize":20}
+    )
+
+    plt.show()
+
+
+
+
+
+def triangle_plot_with_mapping(optimizer_directory, name1="galaxies", name2="lens", use_mapping=True):
+
+    obj = mcsamples.loadMCSamples(
+        "{}/multinest".format(optimizer_directory)
+    )
+
+    paramnames = [paramname.name for paramname
+        in obj.paramNames.names
+    ]
+
+
+    mapping = {
+        "centre_0": r"y_{cen}",
+        "centre_1": r"x_{cen}",
+        "phi": r"\theta (^o)",
+        "magnitude":r"\gamma",
+        "einstein_radius":r"\theta_E",
+        "axis_ratio":r"q",
+        "slope":r"\alpha"
+
+    }
+
+    idx = []
+    labels = []
+    for i, paramname in enumerate(paramnames):
+        if paramname.startswith("{}_{}".format(name1, name2)):
+            idx.append(i)
+            for mapping_key in mapping.keys():
+                if paramname.endswith(mapping_key):
+                    labels.append(mapping[mapping_key])
+
+
+    samples = obj.samples[:, idx]
+
+    samples_for_plotting = MCSamples(
+        samples=samples,
+        names=["x_{}".format(i)
+            for i in range(samples.shape[-1])
+        ],
+        labels=labels,
+    )
+
+    plotter = plots.get_single_plotter(width_inch=15)
+
+    plotter.triangle_plot(
+        samples_for_plotting,
+        params=[name for name in samples_for_plotting.paramNames.names],
+        filled=True,
+    )
+
+    plt.show()
+
+
+# NOTE:
+def triangle_plot_(optimizer_directory, name1="profiles", name2="model_1", use_mapping=True):
+
+    # NOTE: Is there a way to avoid having to use this?
+    import matplotlib
+    matplotlib.use('QT5Agg')
+
+
+    obj = mcsamples.loadMCSamples(
+        "{}/multinest".format(optimizer_directory)
+    )
+
+    #print(samples.samples.shape);exit()
+
+    #paramname = paramnames.ParamInfo(name='1', label='1')
+
+    paramnames = [paramname.name for paramname in obj.paramNames.names]
+
+
+    # ==== #
+    # NOTE: Dev
+
+    # def filter(obj, ):
+    #     pass
+
+    # ==== #
+
+    # # NOTE: name1 is general, name2
+    #
+    # mapping = {
+    #     "centre_0": r"y_{cen}",
+    #     "centre_1": r"x_{cen}",
+    #     "phi": r"\theta (^o)",
+    #     "magnitude":r"$\gamma$",
+    #     "einstein_radius":r"$\theta_E$",
+    #     "axis_ratio":r"$q$",
+    #     "slope":r"$\alpha$"
+    #
+    # }
+    #
+    # idx = []
+    # labels = []
+    # for i, paramname in enumerate(paramnames):
+    #
+    #     if paramname.startswith("{}_{}".format(name1, name2)):
+    #         #print(paramname)
+    #         idx.append(i)
+    #
+    #         for mapping_key in mapping.keys():
+    #             #print(mapping_key)
+    #             if paramname.endswith(mapping_key):
+    #                 labels.append(mapping[mapping_key])
+    #
+    #
+    #         #exit()
+    #
+    # print(labels)
+    # exit()
+
+    if use_mapping:
+        mapping = {
+            "centre_0": r"y_{cen}",
+            "centre_1": r"x_{cen}",
+            "z_centre": r"z_{cen}",
+            "phi": r"\theta (^o)",
+            "inclination": r"i (^o)",
+            "effective_radius": "R_{eff}",
+            "turnover_radius": "r_t",
+            "intensity": "I",
+            "maximum_velocity": "V_{max}",
+            "velocity_dispersion": "\sigma",
+        }
+
+        mapped_paramnames = []
+        for name in paramnames:
+
+            mapped_name = "{}_{}_".format(name1, name2)
+            if name.startswith(mapped_name):
+
+                key = string_utils.remove_substring_from_start_of_string(
+                    string=name, substring=mapped_name
+                )
+
+                mapped_paramnames.append(mapping[key])
+    else:
+        mapped_paramnames = None
+
+    if use_mapping and not mapped_paramnames:
+        raise ValueError("The is no available mapping")
+
+    #print(params);exit()
+
+    # NOTE: The default
+    # labels=["x_{}".format(i)
+    #     for i in range(samples.samples.shape[-1])
+    # ],
+
+    # NOTE:
+    #samples = obj.samples[:, :7]
+    samples = obj.samples
+
+
+    samples_for_plotting = MCSamples(
+        samples=samples,
+        names=["x_{}".format(i)
+            for i in range(samples.shape[-1])
+        ],
+        labels=["x_{}".format(i)
+            for i in range(samples.shape[-1])
+        ] if not use_mapping else mapped_paramnames,
+    )
+
+    plotter = plots.get_single_plotter(width_inch=15)
+
+    plotter.triangle_plot(
+        samples_for_plotting,
+        params=[name for name in samples_for_plotting.paramNames.names],
+        filled=True,
+    )
+
+    plt.show()
+
+
+def triangle_plot_base(optimizer_directory):
+
+    samples = mcsamples.loadMCSamples(
+        "{}/multinest".format(optimizer_directory)
+    )
+
+    plotter = plots.get_single_plotter(width_inch=16)
+    plotter.triangle_plot(
+        samples,
+        filled=True,
+    )
+    plt.show()
 
 if __name__ == "__main__":
 

@@ -100,6 +100,9 @@ def filter_input_list_of_strings_after_split_with_list_of_string_and_ending_stri
         input_list_of_strings=input_list_of_strings_filtered, split_character=split_character, ending_string=ending_string
     )
 
+def get_bool_indexes(list, value):
+
+    return [i for i, x in enumerate(list) if x == value]
 
 
 
@@ -116,6 +119,12 @@ def filter_input_list_of_strings_after_split_with_list_of_string_and_ending_stri
 
 if __name__ == "__main__":
 
+    get_bool_indexes(
+        list=[False, False, False, False, True, True, False, True, False, False, False, False, False, False, False, False],
+        value=False
+    )
+
+    """
     directory = "/Users/ccbh87/Desktop/COSMA/cosma7/data/dp004/dc-amvr1/workspace/output/interferometer"
     pipeline = "lens_sie__source_gaussian"
     directory += "/" + pipeline
@@ -151,3 +160,4 @@ if __name__ == "__main__":
 
     for i in range(len(directory_trees_after_filtering)):
         print(i, directory_trees_after_filtering[i])
+    """

@@ -1,0 +1,16 @@
+
+
+1) Noise
+
+  i) Generate a noise map with casa (feed a blanck image in simobserve).
+
+  ia) The noise for the 2 pol is different.
+
+  ii) Generate noise maps for 2 images, one with a single channel and one with
+  n channels.
+
+  iii) Plot the scatter of the real and imag parts of the noise map for the 2
+  noise arrays (they are different)
+
+  iv) Average the noise array with the n channels and plot the scatter again
+  (they are the same)

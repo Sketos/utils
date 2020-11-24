@@ -1,12 +1,40 @@
 import numpy as np
 
 
-def reshape_array(array):
+def reshape(a):
 
-    return array.reshape(
+    return a.reshape(
         -1,
-        array.shape[-1]
+        a.shape[-1]
     )
+
+def normalize(a, min, max):
+
+    a_min = np.min(a)
+    a_max = np.max(a)
+
+    a_normalized = np.add(
+        np.multiply(
+            np.divide(
+                np.subtract(
+                    max,
+                    min
+                ),
+                np.subtract(
+                    a_max,
+                    a_min
+                )
+            ),
+            np.subtract(
+                a,
+                a_min
+            )
+        ),
+        min
+    )
+
+    return a_normalized
+
 
 
 if __name__ == "__main__":
