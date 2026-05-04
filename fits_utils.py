@@ -1,6 +1,9 @@
 """Helpers for reading and manipulating FITS headers and image products."""
 
-import os, sys, copy, warnings
+import copy
+import os
+import tempfile
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units as au
@@ -43,6 +46,10 @@ SANITIZE_FITS_WITH_SCALING_KEYS = [
     "OBSGEO-Y",
     "OBSGEO-Z",
 ] + SANITIZE_FITS_KEYS
+
+DEFAULT_TEST_FITS_FILENAME = (
+    "member.uid___A001_X1465_X2ef7.SPT2147-50_sci.spw21_23_25_27.cont.I.pbcor.fits"
+)
 
 
 def _extract_required_keys(header, keys):
@@ -560,58 +567,215 @@ def save_image_with_extent(image, extent):
     """Placeholder for writing an image together with a plotting extent."""
     raise NotImplementedError("save_image_with_extent is not implemented.")
 
+
+def _get_default_test_filename(filename=None):
+    """Return the requested test FITS filename or the module's default sample."""
+    if filename is not None:
+        return filename
+    return DEFAULT_TEST_FITS_FILENAME
+
+
+def _get_sample_header_and_data(filename=None):
+    """Load the default sample FITS file and return its header and squeezed data."""
+    filename = _get_default_test_filename(filename)
+    header = fits.getheader(filename=filename)
+    data = np.squeeze(fits.getdata(filename=filename))
+    return filename, header, data
+
+
+def _assert(condition, message):
+    """Raise an AssertionError with a friendlier message for manual tests."""
+    if not condition:
+        raise AssertionError(message)
+
 # ----------------------- #
 #
 # ----------------------- #
 
-def test__get_pixel_scale_from_fits():
-    """Manual smoke test for pixel-scale extraction using `data/test.fits`."""
-
-    filename = "data/test.fits"
-
-    ext = 0
-    units = "arcsec"
-
-    pixel_scale = get_pixel_scale_from_fits(
-        filename=filename,
-        ext=ext,
-        units=units
-    )
-
-    print(
-        "pixel scale = ", pixel_scale, "in units of", units
-    )
+def test__sample_file_exists(filename=None):
+    """Verify that the default sample FITS file is present on disk."""
+    filename = _get_default_test_filename(filename)
+    _assert(os.path.exists(filename), f"Test FITS file was not found: {filename}")
+    return filename
 
 
-def test__extract_list_of_keys_from_header():
-    """Manual smoke test for extracting a small set of spectral header keys."""
+def test__get_pixel_scale_from_fits(filename=None):
+    """Check that pixel-scale extraction succeeds for the sample FITS file."""
+    filename = test__sample_file_exists(filename)
+    pixel_scale = get_pixel_scale_from_fits(filename=filename, ext=0, units="arcsec")
+    _assert(np.isfinite(pixel_scale), "Pixel scale should be finite.")
+    _assert(pixel_scale > 0.0, "Pixel scale should be positive.")
+    return pixel_scale
 
-    # ...
-    filename = "data/test.fits"
-    ext = 0
 
-    # ...
-    header = fits.getheader(
-        filename=filename, ext=ext
-    )
+def test__beam_helpers(filename=None):
+    """Check that beam extraction works from both a header and a FITS file."""
+    filename, header, _ = _get_sample_header_and_data(filename)
+    beam_from_header = get_beam_from_header(header=header, units="arcsec")
+    beam_from_fits = get_beam_from_fits(filename=filename, units="arcsec")
+    _assert(np.isfinite(beam_from_header), "Beam area from header should be finite.")
+    _assert(beam_from_header > 0.0, "Beam area should be positive.")
+    _assert(np.isclose(beam_from_header, beam_from_fits), "Beam helpers should agree.")
+    return beam_from_header
 
-    # ...
-    list_of_keys = [
-        "CTYPE3",
-        "CRVAL3",
-        "CDELT3",
-        "CRPIX3",
-        "CUNIT3"
-    ]
 
-    # ...
+def test__extract_key_helpers(filename=None):
+    """Check single-key extraction from both a header and a FITS file."""
+    filename, header, _ = _get_sample_header_and_data(filename)
+    object_from_header = extract_key_from_header(header=header, key="OBJECT")
+    object_from_fits = extract_key_from_fits(filename=filename, key="OBJECT")
+    _assert(object_from_header == "SPT2147-50", "Unexpected OBJECT value in header.")
+    _assert(object_from_header == object_from_fits, "Key extractors should agree.")
+    return object_from_header
+
+
+def test__extract_list_of_keys_from_header(filename=None):
+    """Check multi-key extraction for the sample FITS header."""
+    _, header, _ = _get_sample_header_and_data(filename)
     header_keys = extract_list_of_keys_from_header(
-        header=header, list_of_keys=list_of_keys
+        header=header,
+        list_of_keys=["CTYPE3", "CRVAL3", "CDELT3", "CRPIX3", "CUNIT3"],
+        error=True,
     )
+    _assert(header_keys["CTYPE3"].strip() == "FREQ", "Expected a FREQ third axis.")
+    _assert(header_keys["CUNIT3"].strip() == "Hz", "Expected the spectral axis in Hz.")
+    return header_keys
 
-    print(header_keys)
+
+def test__header_subset_helpers(filename=None):
+    """Check the helpers that create filtered header copies."""
+    _, header, _ = _get_sample_header_and_data(filename)
+    subset = header_from_header_and_list_of_keys(header, ["OBJECT", "BUNIT"])
+    filtered = filter_header(header, ["OBJECT", "BUNIT"])
+    default_header = header_from_header_and_default_list_of_keys(header)
+    reduced = remove_keys_from_header(header, ["OBJECT"])
+
+    _assert(subset["OBJECT"] == "SPT2147-50", "Subset header should keep OBJECT.")
+    _assert(filtered["BUNIT"].strip() == "Jy/beam", "Filtered header should keep BUNIT.")
+    _assert("BMAJ" in default_header, "Default header selection should keep beam info.")
+    _assert("OBJECT" not in reduced, "Removed header should not include OBJECT.")
+    return {
+        "subset": subset,
+        "filtered": filtered,
+        "default_header": default_header,
+        "reduced": reduced,
+    }
 
 
+def test__header_update_helpers(filename=None):
+    """Check header-update helpers in memory and on a temporary FITS copy."""
+    filename, header, _ = _get_sample_header_and_data(filename)
+    updated = updated_header_with_header_keys(
+        header=header,
+        header_keys={"TESTKEY": 42},
+        replace=False,
+    )
+    _assert(updated["TESTKEY"] == 42, "Header update should add TESTKEY in memory.")
+
+    with tempfile.NamedTemporaryFile(suffix=".fits", delete=False) as temp_file:
+        temp_filename = temp_file.name
+
+    try:
+        fits.writeto(
+            temp_filename,
+            data=fits.getdata(filename=filename),
+            header=header,
+            overwrite=True,
+        )
+        updated_header_with_header_keys_from_filename(
+            filename=temp_filename,
+            header_keys={"TESTKEY": 99},
+            replace=True,
+        )
+        temp_header = fits.getheader(temp_filename)
+        _assert(temp_header["TESTKEY"] == 99, "On-disk header update should persist TESTKEY.")
+        return temp_header
+    finally:
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
+
+
+def test__extent_and_angle_helpers(filename=None):
+    """Check extent and rotation-angle extraction for the sample FITS header."""
+    _, header, _ = _get_sample_header_and_data(filename)
+    extent = get_extent_from_header(header)
+    angle = angle_from_header(header)
+    _assert(len(extent) == 4, "Extent should contain four values.")
+    _assert(extent[1] > 0.0 and extent[3] > 0.0, "Extent should be positive.")
+    _assert(np.isclose(angle, 0.0), "Sample image should have zero rotation.")
+    return extent, angle
+
+
+def test__2d_header_helpers(filename=None):
+    """Check the 2D header extraction helpers used by imaging workflows."""
+    _, header, _ = _get_sample_header_and_data(filename)
+    header_2d = extract_keys_from_header_for_2d(header)
+    aplpy_keys = get_list_of_keys_for_aplpy(header)
+    _assert("BMAJ" in header_2d, "2D header extraction should preserve BMAJ.")
+    _assert(aplpy_keys["CTYPE1"].strip() == "RA---SIN", "APLpy keys should preserve axis types.")
+    return header_2d, aplpy_keys
+
+
+def test__cutout_helper(filename=None):
+    """Check that the 2D cutout helper slices data and updates CRPIX correctly."""
+    _, header, data = _get_sample_header_and_data(filename)
+    hdu = fits.PrimaryHDU(data=data, header=header)
+    data_cutout, header_cutout = cutout(
+        hdu=hdu,
+        xmin=100,
+        xmax=140,
+        ymin=200,
+        ymax=260,
+    )
+    _assert(data_cutout.shape == (60, 40), "Cutout shape should match the requested bounds.")
+    _assert(np.isclose(header_cutout["CRPIX1"], header["CRPIX1"] - 100), "CRPIX1 should shift with xmin.")
+    _assert(np.isclose(header_cutout["CRPIX2"], header["CRPIX2"] - 200), "CRPIX2 should shift with ymin.")
+    return data_cutout, header_cutout
+
+
+def test__coordinate_helpers(filename=None):
+    """Check coordinate conversion and recentering against the sample FITS WCS."""
+    _, header, _ = _get_sample_header_and_data(filename)
+    icrs_coords = convert_coords((header["CRVAL1"] * au.deg, header["CRVAL2"] * au.deg), "icrs")
+    xmin, xmax, ymin, ymax = recenter(
+        x=header["CRVAL1"] * au.deg,
+        y=header["CRVAL2"] * au.deg,
+        radius=1.0 * au.arcsec,
+        header=header,
+    )
+    _assert(icrs_coords.frame.name == "icrs", "Coordinate conversion should return the requested frame.")
+    _assert(xmin < xmax and ymin < ymax, "Recentering should return ordered pixel bounds.")
+    return icrs_coords, (xmin, xmax, ymin, ymax)
+
+
+def test__sanitize_helpers(filename=None):
+    """Check that the sanitize helpers produce writable FITS outputs."""
+    filename = _get_default_test_filename(filename)
+
+    with tempfile.NamedTemporaryFile(suffix=".fits", delete=False) as temp_one:
+        output_one = temp_one.name
+    with tempfile.NamedTemporaryFile(suffix=".fits", delete=False) as temp_two:
+        output_two = temp_two.name
+
+    try:
+        sanitize_fits(filename=filename, output_filename=output_one, flipped=False)
+        sanitize_fits_with_scaling(
+            filename=filename,
+            output_filename=output_two,
+            scaling_factor=2.0,
+            flipped=False,
+        )
+
+        data_one = np.squeeze(fits.getdata(output_one))
+        data_two = np.squeeze(fits.getdata(output_two))
+        _assert(data_one.shape == (1536, 1536), "Sanitized FITS should be squeezed to a 2D image.")
+        _assert(data_two.shape == (1536, 1536), "Scaled sanitized FITS should be squeezed to a 2D image.")
+        _assert(np.nanmax(np.abs(data_two)) >= np.nanmax(np.abs(data_one)), "Scaled output should not be smaller than the unscaled output.")
+        return output_one, output_two
+    finally:
+        for temp_filename in [output_one, output_two]:
+            if os.path.exists(temp_filename):
+                os.remove(temp_filename)
 
 
 def get_list_of_keys_for_aplpy(header):
@@ -647,10 +811,45 @@ def get_list_of_keys_for_aplpy(header):
 # ----------------------- #
 
 def run_tests():
-    """Run the module's ad hoc manual test helpers."""
+    """Run the manual smoke tests against the default sample FITS file."""
+    test_functions = [
+        test__sample_file_exists,
+        test__get_pixel_scale_from_fits,
+        test__beam_helpers,
+        test__extract_key_helpers,
+        test__extract_list_of_keys_from_header,
+        test__header_subset_helpers,
+        test__header_update_helpers,
+        test__extent_and_angle_helpers,
+        test__2d_header_helpers,
+        test__cutout_helper,
+        test__coordinate_helpers,
+        test__sanitize_helpers,
+    ]
 
-    #test__get_pixel_scale_from_fits()
-    test__extract_list_of_keys_from_header()
+    results = []
+    filename = _get_default_test_filename()
+    print(f"Running fits_utils tests with {filename}")
+
+    for test_function in test_functions:
+        test_name = test_function.__name__
+        try:
+            test_function(filename=filename)
+        except Exception as error:
+            print(f"FAIL: {test_name}: {error}")
+            results.append((test_name, False, str(error)))
+        else:
+            print(f"PASS: {test_name}")
+            results.append((test_name, True, ""))
+
+    passed = sum(result[1] for result in results)
+    failed = len(results) - passed
+    print(f"Summary: {passed} passed, {failed} failed")
+
+    if failed:
+        raise RuntimeError("One or more fits_utils tests failed.")
+
+    return results
 
 
 def func():

@@ -16,14 +16,13 @@ from scipy import (
 # ---------- #
 # NOTE: custom packages
 # ---------- #
-from dictionary_utils import *
+#from dictionary_utils import *
 import fitting_utils as fitting_utils
 import fits_utils as fits_utils
 import mask_utils as mask_utils
 import matplotlib_utils as matplotlib_utils
 import plot_utils as plot_utils
 import spectral_plot_utils as spectral_plot_utils
-import spectral_utils as spectral_utils
 # ---------- #
 
 """
@@ -57,6 +56,37 @@ def observed_line_frequency_from_rest_line_frequency(frequency, redshift):
 
     """
     return frequency / (redshift + 1.0)
+
+# def get_velocities_from_header(
+#     header,
+#     frequency_0=None,
+#     return_frequencies=False
+# ):
+#     frequencies = get_frequencies_from_header(header=header)
+
+#     if frequency_0 is None:
+#         if "RESTFRQ" in header:
+#             frequency_0 = header["RESTFRQ"]
+#         else:
+#             frequency_0 = np.mean(frequencies)
+
+#     velocities = spectral_utils.convert_frequencies_to_velocities(
+#         frequencies=frequencies, frequency_0=frequency_0
+#     )
+#     if return_frequencies:
+#         return velocities, frequencies
+#     return velocities
+
+
+# def get_velocities_from_fits(filename, frequency_0=None):
+#     """Load a FITS header and convert its spectral axis into velocities."""
+
+#     return get_velocities_from_header(
+#         header=fits.getheader(
+#             filename=filename
+#         ),
+#         frequency_0=frequency_0
+#     )
 
 # NOTE:
 def observed_line_wavelength_from_rest_line_wavelength(wavelength, redshift):
